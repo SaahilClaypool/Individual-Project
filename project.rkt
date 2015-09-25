@@ -4,7 +4,7 @@
 ;; Individual Project
 ;; Graphics language to do animation
 
-;; a shape is eitehr
+;; a shape is either
 ;; - (make-circle 'name radius x y)
 ;; - (make-rectangle 'name width height x y)
 
@@ -14,10 +14,16 @@
 ;; rectangle is a (make-rectangle symbol int int int int)
 (define rectangle (make-rectangle name width height x y))
 
+(define animation (listShape listCmd))
 
+;; when the running animation, will take list of commands, make list of repeats: Every tick will do all repeats, plus check collision: if coll
+;; will send event to both objects, let them move, then repaint the canvas. animation will separate list of collision evenents, could 
 
 ;; -------------------------------------------------
 ;; COMMANDS
+
+
+
 
 ;; addShape consumes shape, adds to 'world'
 ;; (shape -> void)
@@ -43,3 +49,8 @@
 ;; addCollisionEvent: symbol comand -> void
 ;; takes in a name of object and a comand,
 ;; executes that command if that object is hit
+(define addCollisionEvent (name command))
+
+(define animation1
+  (
+
