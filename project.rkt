@@ -8,13 +8,13 @@
 
 ;; addShape ('name shape)
 ;; a shape is either
-;; - (make-circle 'name radius posn vel)
-;; - (make-rectangle 'name width height posn vel)
+;; - (make-circleObject 'name radius posn )
+;; - (make-rectangleObject 'name width height posn )
 
-;; circle is (make-circleObject symbol int posn vel 
+;; circleObject is (make-circleObject symbol int posn  
 (define-struct circleObject (name radius posn ))
 
-;; rectangle is a (make-rectangleObject symbol int int posn vel 
+;; rectangle is a (make-rectangleObject symbol int int posn)  
 (define-struct rectangleObject (name width height posn ))
 ;; an animation is a (make-animation list[cmd]
 ;; takes in a list of commands, creates an animation from this list
@@ -69,10 +69,10 @@
 ;; reverts vel of shape to (make-vel 0 0)
 (define-struct stop(name))
 
-;; horzBounce: (make-horzBounce shape)
+;; horizantalBounce: (make-horzBounce shape)
 ;; reverses x vel of shape
 (define-struct horizantalBounce (name))
-;; horzBounce: (make-vertBounce shape)
+;; verticalBounce: (make-vertBounce shape)
 ;; reverses y vel of shape
 (define-struct verticalBounce (name))
 
@@ -81,15 +81,18 @@
 ;; addCollisionEvent: (make-addCollisionEvent collision list[cmd])
 ;; takes in two objects, executes list of events of what should happen when
 ;; the two given objects collide
-;; either object can be Symbol 'lWall (left wall) 'rWall (right wall) 'tWall (top wall) or 'bWall (bottom wall) this creates event for objects hitting edges
+
 (define-struct addCollisionEvent (collision listofcommand))
 
-;;TODO
+
 ;; collision: (make-collision symbol symbol)
 ;; represents the collision of two objects
+;; An object can either be the name of a shape or
+;;'lWall (left wall) , 'rWall (right wall) , 'tWall (top wall) , 'bWall (bottom wall)
+;; this creates event for objects hitting edges
 (define-struct collision (object1 object2))
-;; (make-repeat cmd)
-;; adds a command to a list of commands to be executed every 'tick'
+;; (make-repeat cmd collision)
+;; adds a command to a list of commands to be executed every 'tick' until a collision (note: could be extended to take other events)
 (define-struct repeatUntil(command a-collision))
 
 
@@ -100,14 +103,14 @@
 
 
 
-
+;; ~~~~~~~~~~~~~~~~~~~~~~~EXAMPLES
 
 (define animationA
-  (let ([circle1 (make-circleObject  'rect 10
+  (let ([circle1 (make-circleObject  'circ 10
                                     (make-posn 10 5)
                                     
                                    )]
-        [rect1 (make-rectangleObject 'circ 5 100
+        [rect1 (make-rectangleObject 'rect 5 100
                                      (make-posn 100 5)
                                      )])
     (make-animation (list
@@ -115,7 +118,7 @@
                      (make-addShape  rect1)
                      (make-repeatUntil (make-move 'circ (make-vel 5 1)) (make-collision 'circ 'rect))
                      
-                     (make-addCollisionEvent (make-collision 'circ 'rect1)
+                     (make-addCollisionEvent (make-collision 'circ 'rect)
                                              (list (make-deleteShape 'rect)
                                                    (make-repeatUntil (make-move 'circ (make-vel -5 1))
                                                                      (make-collision 'circ 'lwall))))))))
@@ -125,6 +128,10 @@
     (make-animation (list
                      (make-addShape circ1)
                      (make-repeatUntil (make-jump 'circ1) (make-collision 'circ1 'twall))))))
+
+
+
+
 (define animationC
   (let ([circ1 (make-circleObject 'circ1 7 (make-posn 20 20))]
         [rect1 (make-rectangleObject 'rect  100 10 (make-posn 5 100) )])
