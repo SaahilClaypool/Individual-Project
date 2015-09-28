@@ -23,7 +23,8 @@
 ;; velocity is a (make-vel int int)
 ;; creats an x y velocity
 (define-struct vel(x y))
-
+;; posn is (make-posn int int)
+;; creates x y position (pre defined)
 
 
 
@@ -83,7 +84,7 @@
 ;; either object can be Symbol 'lWall (left wall) 'rWall (right wall) 'tWall (top wall) or 'bWall (bottom wall) this creates event for objects hitting edges
 (define-struct addCollisionEvent (object1 object2  listofcommand))
 
-;; (make-repeat command)
+;; (make-repeat cmd)
 ;; adds a command to a list of commands to be executed every 'tick'
 (define-struct repeat(command))
 
