@@ -5,17 +5,15 @@
 (require "world-cs1102.rkt")
 
 
+(circle 5 "solid" "red")
+(rectangle 40 80 "solid" "green")
+
+
 
 ;; addShape ('name shape)
-;; a shape is either
-;; - (make-circleObject 'name radius posn )
-;; - (make-rectangleObject 'name width height posn )
+;; a shape is a (make-shape symbol posn image)
+(define-struct shape(name posn image))
 
-;; circleObject is (make-circleObject symbol int posn  
-(define-struct circleObject (name radius posn ))
-
-;; rectangle is a (make-rectangleObject symbol int int posn)  
-(define-struct rectangleObject (name width height posn ))
 ;; an animation is a (make-animation list[cmd]
 ;; takes in a list of commands, creates an animation from this list
 (define-struct animation (listCmd))
@@ -26,6 +24,9 @@
 ;; posn is (make-posn int int)
 ;; creates x y position (pre defined)
 
+;;collision is a (make-collision symbol sybol)
+;; represents the collision of two objects
+(define-struct collision (shapeName1 shapeName2))
 
 
 ;; -------------------------------------------------
@@ -33,122 +34,91 @@
 
 
 #|a cmd is either a
-    (make-addShape symbol shape)
-    (make-deleteShape symbol)
-    (make-setVel symbol vel)
-    (make-jump symbol)
-    (make-stop symbol)
-    (make-horzBounce symbol)
-    (make-vertBounce symbol)
-    (make-addCollisionEvent symbol symbol cmd)
-    (make-repeat cmd)
-    (make-stopAll )
-    
+    (make-addShape shape)
+    (make-removeShape shapeName)
+    (make-jump shapeName)
+    (make-move shapeName vel)
+    (make-stop shapeName)
+    (make-collisionEvent collision cmd)
 
 
 |#
 
-;; addShape (make-addShape  shape), adds to 'world'
+;; addShape: is (make-addShape shape) 
+(define-struct addShape (shape))
 
-(define-struct addShape( shape))
+;; removeShape is (make-removeShape symbol)
+(define-struct removeShape(shapeName))
 
-;; deleteShape: (make-deleteShape symbol)
-;; takes in a shape name, deletes that shape
-(define-struct deleteShape(name))
+;; jump is (make-jump symbol)
+(define-struct jump (shapeName))
 
-;; move: (make-move symbol vel)
-;;takes name of shape, changes its velocity TODO
-(define-struct move(name vel))
+;; jumpOnce is (make-jumpOnce symbol)
+(define-struct jumpOnce (shapeName))
+;; move is (make-move symbol vel
+(define-struct move (shapeName vel))
 
+;; stop is (make-stop symbol)
+(define-struct stop (shapeName))
 
-;; jump: (make-jump name)
-;; takes in a shape name and makes a command for that shape to jump to random locations
-(define-struct jump(name))
+;; collisionEvent is (make-collisionEvent collision cmd
+(define-struct collisionEvent (collision cmd))
 
-;; stop: (make-stop symbol)
-;; reverts vel of shape to (make-vel 0 0)
-(define-struct stop(name))
-
-;; horizantalBounce: (make-horzBounce shape)
-;; reverses x vel of shape
-(define-struct horizantalBounce (name))
-;; verticalBounce: (make-vertBounce shape)
-;; reverses y vel of shape
-(define-struct verticalBounce (name))
-
-
-
-;; addCollisionEvent: (make-addCollisionEvent collision list[cmd])
-;; takes in two objects, executes list of events of what should happen when
-;; the two given objects collide
-
-(define-struct addCollisionEvent (collision listofcommand))
-
-
-;; collision: (make-collision symbol symbol)
-;; represents the collision of two objects
-;; An object can either be the name of a shape or
-;;'lWall (left wall) , 'rWall (right wall) , 'tWall (top wall) , 'bWall (bottom wall)
-;; this creates event for objects hitting edges
-(define-struct collision (object1 object2))
-;; (make-repeat cmd collision)
-;; adds a command to a list of commands to be executed every 'tick' until a collision (note: could be extended to take other events)
-(define-struct repeatUntil(command a-collision))
-
-
-;; stopAll: (make-stopAll )
-;; ends animation
-(define-struct stopAll())
-
-
+;; collision is (make-collision symbol sybol)
+;; a symbol is either a shape name or 'lEdge 'rEdge 'tEdge 'bEdge where each symbol corresponds with the appropriate Edge of the animation
 
 
 ;; ~~~~~~~~~~~~~~~~~~~~~~~EXAMPLES
 
 (define animationA
-  (let ([circle1 (make-circleObject  'circ 10
-                                    (make-posn 10 5)
-                                    
-                                   )]
-        [rect1 (make-rectangleObject 'rect 5 100
-                                     (make-posn 100 5)
-                                     )])
+  (let ([circ (make-shape 'circ (make-posn 10 5) (circle 5 "solid" "blue"))]
+        [rect (make-shape 'rect (make-posn 5 100)(rectangle 5 100 "solid" "green"))]
+        [collision (make-collision 'circ 'rect)]
+        )
     (make-animation (list
-                     (make-addShape  circle1)
-                     (make-addShape  rect1)
-                     (make-repeatUntil (make-move 'circ (make-vel 5 1)) (make-collision 'circ 'rect))
-                     
-                     (make-addCollisionEvent (make-collision 'circ 'rect)
-                                             (list (make-deleteShape 'rect)
-                                                   (make-repeatUntil (make-move 'circ (make-vel -5 1))
-                                                                     (make-collision 'circ 'lwall))))))))
+                     (make-addShape circ)
+                     (make-addShape rect)
+                     (make-move 'circ (make-vel 5 1))
+                     (make-collisionEvent collision (make-removeShape 'rect))
+                     (make-collisionEvent collision (make-move 'circ (make-vel -5 1)))
+                     (make-collisionEvent (make-collision 'lEdge 'circ) (make-stop 'circ))))))
+
+
 
 (define animationB
-  (let ([circ1 (make-circleObject 'circ1 10 (make-posn 100 100) )])
+  (let ([circ (make-shape 'circ (make-posn 100 100) (circle 5 "solid" "blue"))]
+        )
     (make-animation (list
-                     (make-addShape circ1)
-                     (make-repeatUntil (make-jump 'circ1) (make-collision 'circ1 'twall))))))
+                     (make-addShape circ)
+                     (make-jump 'circ)
+                     (make-collisionEvent (make-collision 'circ 'tEdge)
+                                          (make-stop 'circ))))))
+
 
 
 
 
 (define animationC
-  (let ([circ1 (make-circleObject 'circ1 7 (make-posn 20 20))]
-        [rect1 (make-rectangleObject 'rect  100 10 (make-posn 5 100) )])
+  (let ([circ (make-shape 'circ (make-posn 20 20 ) (circle 7 "solid" "red"))]
+        [rect (make-shape 'rect (make-posn 5 100 ) (rectangle 100 10 "solid" "blue"))]
+        [newRect (make-shape 'newRect (make-posn 80 10 ) (rectangle 10 50 "solid" "orange"))]
+        )
     (make-animation (list
-                     (make-addShape circ1)
-                     (make-addShape rect1)
-                     (make-repeatUntil (make-move 'circ1  (make-vel 5 5 )) (make-collision 'circ1 'rect1))
-                     (make-addCollisionEvent (make-collision 'circ1 'rect1)
-                                             (list (make-addShape (make-rectangleObject 'newRect 10 50 (make-posn 80 10) ))
-                                                   (make-repeatUntil (make-move 'circ1  (make-vel 5 0 )) (make-collision 'circ1 'newRect))))
-                     (make-addCollisionEvent (make-collision 'circ1 'newRect)
-                                             (list (make-jump 'circ1)
-                                                   (make-stopAll)))))))
-                     
+                     (make-addShape circ)
+                     (make-addShape rect)
+                     (make-move 'circ (make-vel 5 5))
+                     (make-collisionEvent (make-collision 'circ 'rect)
+                                          (make-addShape newRect))
+                     (make-collisionEvent (make-collision 'circ 'rect)
+                                          (make-addShape newRect))
+                     (make-collisionEvent (make-collision 'circ 'rect)
+                                          (make-move 'circ (make-vel 5 0)))
+                     (make-collisionEvent (make-collision 'circ 'newRect)
+                                          (make-jumpOnce 'circ))))))
 
 
 
 
 
+;;~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ INTERPRETER
 
