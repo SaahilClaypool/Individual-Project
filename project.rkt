@@ -73,7 +73,7 @@
 
 (define animationA
   (let ([circ (make-shape 'circ (make-posn 10 5) (circle 5 "solid" "blue"))]
-        [rect (make-shape 'rect (make-posn 5 100)(rectangle 5 100 "solid" "green"))]
+        [rect (make-shape 'rect (make-posn 100 5)(rectangle 5 100 "solid" "green"))]
         [collision (make-collision 'circ 'rect)]
         )
     (make-animation (list
@@ -120,12 +120,121 @@
 
 
 
-
+ 
 ;;~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ INTERPRETER
+;;animation -> void
+(define (runAnimation animation)
+  (let ([world (runList (animation-listCmd animation) (make-world empty empty empty))])
+     (begin
+      (big-bang 500 500 1/28 true)
+      (runWorld world))))
 
-;; an event is either :
-;;    - (make-make-CollisionEvent collision cmd)
+;; world -> void 
+(define (runWorld world)
+  
+    (begin
+      
+      (drawWorld world)
+      (sleep/yield .25)
+      (runWorld (doActions world))
+       
+      
+      ))
 
+(define (doActions world)
+  (doActionsList (world-listActions world) world))
+
+
+(define (doActionsList list world)
+  (cond [(empty? list) world]
+        [(cons? list)(doActionsList (rest list) (doAction (first list) world))]))
+        
+                                                   
+
+(check-expect (doActionsList (list(make-move 'circ (make-vel 5 5)))
+
+                             (make-world (list (make-shape 'circ (make-posn 0 0) (circle 1 "solid" "green")))
+                                         empty empty))
+              (make-world (list (make-shape 'circ (make-posn 5 5) (circle 1 "solid" "green"))) 
+                          empty empty))
+
+;; action world -> world after action
+(define (doAction action world)
+  (cond [(move? action) (doMove action world)]
+        [(jump? action) (doJump action world)]))
+
+(check-expect (doAction (make-move 'circ (make-vel 5 5))
+                        (make-world (list (make-shape 'circ (make-posn 0 0) (circle 1 "solid" "green")))
+                                    empty empty))
+               (make-world (list (make-shape 'circ (make-posn 5 5) (circle 1 "solid" "green"))) 
+                          empty empty))
+
+;; move world -> world
+(define (doMove move world)
+  (let ([thisShape  (findShape (move-shapeName move) (world-listShapes world))])
+    (cond [(shape? thisShape)
+          (make-world
+           (cons (moveShape thisShape (move-vel move)) (removeShapeFromList (shape-name thisShape) (world-listShapes world)))
+           (world-listEvents world)
+           (world-listActions world))]
+          [else world]))) 
+
+(check-expect (doMove (make-move 'circ (make-vel 5 5))
+                      (make-world (list (make-shape 'circ (make-posn 0 0) (circle 1 "solid" "green")))
+                                                                   empty
+                                                                   empty))
+              (make-world (list (make-shape 'circ (make-posn 5 5) (circle 1 "solid" "green"))) 
+                          empty empty))
+
+
+;; name list[shape] -> shape 
+(define (findShape name list)
+  (let ([shape (filter (lambda (aShape) (symbol=? name (shape-name aShape))) list)]) 
+        (cond [(cons? shape)(first shape)]
+              [else void]))) 
+
+(check-expect (findShape 'circ (list (make-shape 'circ (make-posn 0 0 ) (circle 1 "solid" "blue"))))
+              (make-shape 'circ (make-posn 0 0 ) (circle 1 "solid" "blue")))
+
+;; list -> list
+(define (removeShapeFromList name list)
+  (cond [(empty? list) empty]
+        [(cons? list )
+         (cond [(symbol=? name (shape-name (first list)))
+                (rest list)]
+               [else (cons (first list)
+                           (removeShapeFromList name (rest list)))])]))
+
+
+(check-expect (removeShapeFromList 'testing
+                                   (list
+                                     (make-shape 'test (make-posn 0 0) (circle 1 "solid" "blue" )) 
+                                     (make-shape 'testing void void)))
+              (list (make-shape 'test (make-posn 0 0) (circle 1 "solid" "blue" )))) 
+;; shape -> shape
+(define (moveShape shape vel)
+  (make-shape (shape-name shape)
+              (make-posn (+ (posn-x (shape-posn shape)) (vel-x vel)) 
+                         (+ (posn-y (shape-posn shape)) (vel-y vel)))
+              (shape-image shape)))
+
+(check-expect (moveShape  (make-shape 'circ (make-posn 0 0 ) (circle 1 "solid" "blue")) (make-vel 5 5 ))
+               (make-shape 'circ (make-posn 5 5  ) (circle 1 "solid" "blue")))
+;;~~~~~~~~~~~~~~~~~~~~~~~~~DRAWING
+
+;; (world-> void)
+;; gives the image of the world 
+(define (drawWorld world) 
+  (update-frame (drawList (world-listShapes world)))) 
+;; list -> image
+(define (drawList list)
+  (cond[(empty? list) (empty-scene 500 500)]
+       [(cons? list)
+                        (place-image (shape-image (first list))
+                                     (posn-x (shape-posn (first list)))
+                                     (posn-y (shape-posn (first list)))
+                                     (drawList (rest list)))]))
+;;~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~HELPER FUN
 ;; an action is either
 ;;    - (make-move symbol(name) vel)
 ;;    - (make-jump symbol(name) )
@@ -134,26 +243,30 @@
   (or (move? cmd)
       (jump? cmd)
       (jumpOnce? cmd)))
+
+
+;;~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~MAKING WORLD
+;; an event is either :
+;;    - (make-make-CollisionEvent collision cmd)
+
 ;; (make-struct list[shapes] list[events] list[actions]
 (define-struct world (listShapes listEvents listActions) (make-inspector))
 
 
-;; animation -> void 
-(define (runAnimation animation)
-  (let ([world (listToWorld (animation-listCmd animation) (make-world empty empty empty))])
-    world))
+
 
 ;; gives back the 
-(define (listToWorld a-list old-world)
+(define (runList a-list old-world)
   (cond [(empty? a-list) old-world]
         [(cons? a-list)
          (let ([L1 (first a-list)])
            ;;                   adds rest of elements in list, to the world that contains the current element
-           (cond [(addShape?  L1) (listToWorld (rest a-list) (addShapeToList (addShape-shape L1) old-world))]
-                 [(collisionEvent? L1) (listToWorld (rest a-list) (addEventToList L1 old-world))]
-                 [(action? L1)(listToWorld (rest a-list) (addActionToList L1 old-world))]
-                 ;; other conditions
-                 ))]))
+           (cond [(addShape?  L1) (runList (rest a-list) (addShapeToList (addShape-shape L1) old-world))]
+                 [(collisionEvent? L1) (runList (rest a-list) (addEventToList L1 old-world))]
+                 [(action? L1)(runList (rest a-list) (addActionToList L1 old-world))]
+                 [else (runList (rest a-list) (executeCommand L1 old-world))]))]))
+
+
 
 ;; (shape world -> world)
 ;; adds a shape to a world
@@ -187,7 +300,7 @@
                                         (make-collisionEvent null null)
                                         (make-move 'shape (make-vel 1 1 )))))
 
-(check-expect (listToWorld (animation-listCmd TEST_ANIMATION) (make-world empty empty empty))
+(check-expect (runList (animation-listCmd TEST_ANIMATION) (make-world empty empty empty))
               (make-world (list (make-shape 'shape (make-posn 1 1)
                                             (circle 1 "solid" "green")))
                           (list (make-collisionEvent null null))
