@@ -130,6 +130,10 @@
 ;;    - (make-move symbol(name) vel)
 ;;    - (make-jump symbol(name) )
 ;;    - (make-jumpOnce symbol(name) )
+(define (action? cmd)
+  (or (move? cmd)
+      (jump? cmd)
+      (jumpOnce? cmd)))
 ;; (make-struct list[shapes] list[events] list[actions]
 (define-struct world (listShapes listEvents listActions) (make-inspector))
 
@@ -146,6 +150,8 @@
          (let ([L1 (first a-list)])
            ;;                   adds rest of elements in list, to the world that contains the current element
            (cond [(addShape?  L1) (listToWorld (rest a-list) (addShapeToList (addShape-shape L1) old-world))]
+                 [(collisionEvent? L1) (listToWorld (rest a-list) (addEventToList L1 old-world))]
+                 [(action? L1)(listToWorld (rest a-list) (addActionToList L1 old-world))]
                  ;; other conditions
                  ))]))
 
@@ -153,6 +159,20 @@
 ;; adds a shape to a world
 (define (addShapeToList shape old-world)
   (make-world (cons shape (world-listShapes old-world)) (world-listEvents old-world) (world-listActions old-world)))
+
+;; (collisionEvent world -> world
+;; adds collision event to worl
+(define (addEventToList event old-world)
+  (make-world  (world-listShapes old-world)
+               (cons event (world-listEvents old-world))
+               (world-listActions old-world)))
+
+;; (action world -> world) 
+;; adds action to world
+(define (addActionToList action old-world)
+  (make-world  (world-listShapes old-world)
+               (world-listEvents old-world)
+               (cons action (world-listActions old-world))))
 
 
 
@@ -163,12 +183,15 @@
 (define TEST_ANIMATION (make-animation (list
                                         (make-addShape
                                          (make-shape 'shape (make-posn 1 1 )
-                                                     (circle 1 "solid" "green"))))))
+                                                     (circle 1 "solid" "green")))
+                                        (make-collisionEvent null null)
+                                        (make-move 'shape (make-vel 1 1 )))))
 
-(check-expect (runAnimation TEST_ANIMATION)
+(check-expect (listToWorld (animation-listCmd TEST_ANIMATION) (make-world empty empty empty))
               (make-world (list (make-shape 'shape (make-posn 1 1)
                                             (circle 1 "solid" "green")))
-                          empty empty))
+                          (list (make-collisionEvent null null))
+                          (list (make-move 'shape (make-vel 1 1)))))
 
 
 
