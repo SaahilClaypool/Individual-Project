@@ -146,6 +146,10 @@
 ;;~~~~~~~~~~~~~~~~~~~~~~~~ Collisions:
 ;; findCollisions (world -> listCollisions)
 ;; Docollision: (world)
+(define (doCollisions world)
+  (let ([collList findCollisions (world-listShape world)])
+    (collList))
+  ;; need this fun to search through list events, add list of events that need to be done, then runcmd list of active events
 ;; (runcmdlist (getCollisionEvents (find Collisions)) world)
 
 ;; findCollisions: (list Shapes) -> (hasCollision shape list)
@@ -155,33 +159,71 @@
 
 ;; findCollisions: list[shape] -> list[collision]
 ;; gives back list of all collisions
+;; note: objects always will collide with themselves and give an extra collision
 (define (findCollisions listShapes)
   (let ([all-collisions (map (lambda (a-shape) (findCollisionsShape a-shape listShapes))
                              listShapes)])
    (flattenListOfList all-collisions )))
+(check-expect (findCollisions (list (make-shape '1 (make-posn 0 0 ) (circle 3 "solid" "blue"))
+                                    (make-shape '2 (make-posn 0 0 ) (circle 3 "solid" "blue"))))
+                              (list (make-collision '1 '1)
+                                    (make-collision '1 '2)
+                                    (make-collision '2 '1)
+                                    (make-collision '2 '2)))
+(check-expect (findCollisions (list (make-shape '1 (make-posn 0 0 ) (circle 3 "solid" "blue"))
+                                    (make-shape '2 (make-posn 10 10 ) (circle 3 "solid" "blue"))))
+                              (list (make-collision '1 '1)
+                                    (make-collision '2 '2)))
 
 ;; findCollisionsShape: shape list[shape] -> list[collision]
 ;; returns the list of collisions one shape has with the rest of the shapes
-(define (findCollisionsShape shape)
+(define (findCollisionsShape shape listShapes)
   (map (lambda (a-shape) (make-collision (shape-name shape) (shape-name a-shape)))
-       (filter (lambda (a-shape) (doCollide shape a-shape)))))
+       (filter (lambda (a-shape) (doCollide shape a-shape))
+               listShapes)))
+(check-expect (findCollisionsShape (make-shape '1 (make-posn 0 0 ) (circle 3 "solid" "blue"))
+                                   (list (make-shape '2 (make-posn 0 0 ) (circle 3 "solid" "blue"))
+                                         (make-shape '3 (make-posn 0 0 ) (circle 3 "solid" "blue"))))
+              (list (make-collision '1 '2)
+                    (make-collision '1 '3)))
+(check-expect (findCollisionsShape (make-shape '1 (make-posn 0 0 ) (circle 3 "solid" "blue"))
+                                   (list (make-shape '2 (make-posn 10 10 ) (circle 3 "solid" "blue"))
+                                         (make-shape '3 (make-posn 0 0 ) (circle 3 "solid" "blue"))))
+              (list (make-collision '1 '3)))
 
 (define (doCollide shape1 shape2)  
   (let ([shape1Left (posn-x (shape-posn shape1))]
-        [shape1Rigt (getRight shape1)]
+        [shape1Right (getRight shape1)]
+        [shape1Top (posn-y (shape-posn shape1))]
+        [shape1Bottom (getBottom shape1)]
         [shape2Left (posn-x (shape-posn shape2))]
-        [shape2Right (getRight shape2)])
-    shape1Left)
-  )
-
+        [shape2Right (getRight shape2)]
+        [shape2Top (posn-y (shape-posn shape2))]
+        [shape2Bottom (getBottom shape2)]
+        )
+    ;; x overlap:
+    (and (< shape1Left shape2Right)
+         (> shape1Right shape2Left)
+         (< shape1Top shape2Bottom)
+         (> shape1Bottom shape2Top))))
+  
+(check-expect (doCollide (make-shape '1 (make-posn 0 0 ) (circle 3 "solid" "blue"))
+                         (make-shape '1 (make-posn 0 0 ) (circle 3 "solid" "blue")))
+              true)
+(check-expect (doCollide (make-shape '1 (make-posn 10 0 ) (circle 3 "solid" "blue"))
+                         (make-shape '1 (make-posn 0 0 ) (circle 3 "solid" "blue")))
+              false)
 (define (getRight shape)        
-  (+(posn-x(shape-posn shape)) (*  (image-width(shape-image shape)))))
+  (+(posn-x(shape-posn shape)) (image-width(shape-image shape))))
 ;;(define (getBottom shape) ENDING HERE
   
 
 (check-expect (getRight (make-shape 'name (make-posn 0 0) (circle 5 "solid" "green")))
               10)
-
+(define (getBottom shape)
+  (+ (posn-y(shape-posn shape)) (image-height (shape-image shape))))
+(check-expect (getBottom (make-shape 'name (make-posn 0 0 ) (circle 5 "solid" "green")))
+              10)
 
 ;; FlattenListOfList: list[list[?]] -> list[?]
 (define (flattenListOfList list)
@@ -314,7 +356,7 @@
               (cond [(addShape?  L1) (runList (rest a-list) (addShapeToList (addShape-shape L1) old-world))]
                     [(collisionEvent? L1) (runList (rest a-list) (addEventToList L1 old-world))]
                     [(action? L1)(runList (rest a-list) (addActionToList L1 old-world))]
-                    [else (runList (rest a-list) (executeCommand L1 old-world))]))]))
+                    [else (runList (rest a-list) (executeCommand L1 old-world))]))])) ;;TODO
    
    
    
