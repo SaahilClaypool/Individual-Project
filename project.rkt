@@ -81,8 +81,11 @@
                      (make-addShape circ)
                      (make-addShape rect)
                      (make-move 'circ (make-vel 5 1))
+                     
                      (make-collisionEvent collision (make-removeShape 'rect))
                      (make-collisionEvent collision (make-move 'circ (make-vel -5 1)))
+                     (make-collisionEvent collision (make-stop 'circ))
+                     
                      (make-collisionEvent (make-collision 'lEdge 'circ) (make-stop 'circ))))))
 
 
@@ -393,7 +396,20 @@
      (cond [(removeShape? command) (make-world
                                     (removeShapeFromList (removeShape-shapeName command) (world-listShapes world))
                                     (world-listEvents world)
-                                    (world-listActions world))]))
+                                    (world-listActions world))]
+           [(stop? command) (make-world
+                             (world-listShapes world)
+                             (world-listEvents world)
+                             (filter (lambda (cmd) (not (cond [(move? cmd)
+                                                               (symbol=? (move-shapeName cmd) (stop-shapeName command))]
+                                                              [else false])))
+                                     (world-listActions world)))]))
+(check-expect (executeCommand (make-stop 'a) (make-world empty empty (list (make-move 'ab (make-vel 1 1)) (make-move 'a (make-vel 1 1)))))
+              (make-world empty empty (list (make-move 'ab (make-vel 1 1)))))
+(check-expect (executeCommand (make-removeShape 'a) (make-world (list (make-shape 'a (make-posn 1 1 ) (circle 5 "solid" "green")))
+                                                                empty
+                                                                empty))
+              (make-world empty empty empty))
    
    ;; (shape world -> world)
    ;; adds a shape to a world
@@ -436,7 +452,7 @@
    
    
    
-   
+
    
    
    
