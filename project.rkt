@@ -1,5 +1,6 @@
 
 ;;Saahil Claypool Individual Project
+;;TODO make when adding move remove old move add stop add jumpOnce
 
 ;; Graphics language to do animation
 (require "world-cs1102.rkt")
@@ -136,7 +137,7 @@
     
     (drawWorld world)
     (sleep/yield .25)
-    (runWorld (doActions world))
+    (runWorld (doActions (doCollisions world)))
     
     
     ))
@@ -145,10 +146,40 @@
 
 ;;~~~~~~~~~~~~~~~~~~~~~~~~ Collisions:
 ;; findCollisions (world -> listCollisions)
-;; Docollision: (world)
+;; Docollision: (world) -> world
 (define (doCollisions world)
-  (let ([collList findCollisions (world-listShape world)])
-    (collList))
+  (let ([collList (findCollisions (world-listShapes world))])
+    (doCollisionsList collList world)))
+
+
+
+;;DoCollList list[collision] world -> world
+(define (doCollisionsList collList world)
+  (cond [(empty? collList) world]
+        [(cons? collList) (doCollisionsList (rest collList)
+                                            (runList (map collisionEvent-cmd
+                                                          (filter (lambda (a-colEvent)
+                                                                    (equal? (collisionEvent-collision a-colEvent)
+                                                                                 (first collList)))
+                                                                  (world-listEvents world)))
+                                                     world))]))
+
+
+
+(check-expect (doCollisionsList (list (make-collision 'a 'b))
+                                (make-world empty (list
+                                                   (make-collisionEvent
+                                                    (make-collision 'a 'b)
+                                                    (addShape (make-shape '1 (make-posn 0 0) (circle 5 "solid" "green")))))
+                                            empty))
+              (make-world (list
+                           (make-shape '1 (make-posn 0 0 ) (circle 5 "solid" "green")))
+                          (list
+                                 (make-collisionEvent
+                                  (make-collision 'a 'b)
+                                  (addShape (make-shape '1 (make-posn 0 0) (circle 5 "solid" "green")))))
+                          empty))
+              
   ;; need this fun to search through list events, add list of events that need to be done, then runcmd list of active events
 ;; (runcmdlist (getCollisionEvents (find Collisions)) world)
 
@@ -358,7 +389,11 @@
                     [(action? L1)(runList (rest a-list) (addActionToList L1 old-world))]
                     [else (runList (rest a-list) (executeCommand L1 old-world))]))])) ;;TODO
    
-   
+   (define (executeCommand command world)
+     (cond [(removeShape? command) (make-world
+                                    (removeShapeFromList (removeShape-shapeName command) (world-listShapes world))
+                                    (world-listEvents world)
+                                    (world-listActions world))]))
    
    ;; (shape world -> world)
    ;; adds a shape to a world
