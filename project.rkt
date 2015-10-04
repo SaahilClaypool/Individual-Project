@@ -101,17 +101,34 @@
 
 
 
+;;~~~~~~~~~~~~~~~~~~~~~~~~ Macros 
+(define-syntax add
+  (syntax-rules (circle named at radius color)
+    [(add circle named name at intX intY radius intR color theColor)
+     (make-addShape (make-shape 'name (make-posn intX intY) (circle intR "solid" 'theColor)))]))
 
+(define-syntax addMove
+  (syntax-rules ()
+    [(addMove name vel)
+     ((make-move 'name vel)
+     (make-stop 'name))]))
+;; make eventList -> macro to convert list to a bunch of make events
 
+(define-syntax when
+  (syntax-rules(hits then) 
+    [(when name hits name2 then command ... )
+    ((make-collisionEvent (make-collision 'name 'name2)
+                          command)...)])) 
 (define animationC
   (let ([circ (make-shape 'circ (make-posn 20 20 ) (circle 7 "solid" "red"))]
         [rect (make-shape 'rect (make-posn 5 100 ) (rectangle 100 10 "solid" "blue"))]
         [newRect (make-shape 'newRect (make-posn 80 80 ) (rectangle 10 50 "solid" "orange"))]
         )
     (make-animation (list
-                     (make-addShape circ)
+                     ;;(make-addShape circ)
+                     (add circle named circ at 20 20 radius 7 color green)
                      (make-addShape rect)
-                     (make-move 'circ (make-vel 0 5))
+                     (addMove circ (make-vel 0 5))
                      (make-collisionEvent (make-collision 'circ 'rect)
                                           (make-addShape newRect))
                      (make-collisionEvent (make-collision 'circ 'rect)
@@ -124,6 +141,8 @@
                                           (make-stop 'circ ))
                      
                      )))) 
+
+
 
 
 
