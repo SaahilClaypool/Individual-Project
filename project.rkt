@@ -88,7 +88,7 @@
                      
                      (make-collisionEvent (make-collision 'lEdge 'circ) (make-stop 'circ))))))
 
-
+ 
 
 (define animationB
   (let ([circ (make-shape 'circ (make-posn 100 100) (circle 5 "solid" "blue"))]
@@ -103,22 +103,23 @@
 
 ;;~~~~~~~~~~~~~~~~~~~~~~~~ Macros 
 (define-syntax add
-  (syntax-rules (circle named at radius color)
+  (syntax-rules (circle rectangle width height named at radius color)
     [(add circle named name at intX intY radius intR color theColor)
-     (make-addShape (make-shape 'name (make-posn intX intY) (circle intR "solid" 'theColor)))]))
+     (make-addShape (make-shape 'name (make-posn intX intY) (circle intR "solid" 'theColor)))]
+    [(add rectangle named name at intX intY width intW height intH color theColor)
+     (make-addShape (make-shape 'name (make-posn intX intY) (rectangle intW intH "solid" 'theColor)))]))
 
 (define-syntax addMove
-  (syntax-rules ()
-    [(addMove name vel)
-     ((make-move 'name vel)
-     (make-stop 'name))]))
+  (syntax-rules (by)
+    [(move name by intX intY)
+     (make-move 'name (make-vel intX intY))]))
 ;; make eventList -> macro to convert list to a bunch of make events
 
 (define-syntax when
   (syntax-rules(hits then) 
-    [(when name hits name2 then command ... )
-    ((make-collisionEvent (make-collision 'name 'name2)
-                          command)...)])) 
+    [(when name hits name2 then command  )
+     (make-collisionEvent (make-collision 'name 'name2)
+                            command )])) 
 (define animationC
   (let ([circ (make-shape 'circ (make-posn 20 20 ) (circle 7 "solid" "red"))]
         [rect (make-shape 'rect (make-posn 5 100 ) (rectangle 100 10 "solid" "blue"))]
@@ -128,15 +129,17 @@
                      ;;(make-addShape circ)
                      (add circle named circ at 20 20 radius 7 color green)
                      (make-addShape rect)
-                     (addMove circ (make-vel 0 5))
-                     (make-collisionEvent (make-collision 'circ 'rect)
-                                          (make-addShape newRect))
+                     (addMove circ by 0 5)
+;                     (make-collisionEvent (make-collision 'circ 'rect)
+;                                          (make-addShape newRect))
+                     (when circ hits rect then (add rectangle named newRect at 80 80 width 10 height 50 color orange))
                      (make-collisionEvent (make-collision 'circ 'rect)
                                           (make-move 'circ (make-vel 5 -1)))
                      (make-collisionEvent (make-collision 'circ 'rect )
                                           (make-stop 'circ))
+                    
                      (make-collisionEvent (make-collision 'circ 'newRect)
-                                                               (make-jumpOnce 'circ))
+                                          (make-jumpOnce 'circ))
                      (make-collisionEvent (make-collision 'circ 'newRect)
                                           (make-stop 'circ ))
                      
@@ -231,8 +234,8 @@
   (let ([all-collisions (map (lambda (a-shape) (findCollisionsShape a-shape listShapes))
                              listShapes)])
     
-      
-      (flattenListOfList all-collisions)))
+    
+    (flattenListOfList all-collisions)))
 (check-expect (findCollisions (list (make-shape '1 (make-posn 0 0 ) (circle 3 "solid" "blue"))
                                     (make-shape '2 (make-posn 0 0 ) (circle 3 "solid" "blue"))))
               (list
@@ -242,6 +245,8 @@
 (check-expect (findCollisions (list (make-shape '1 (make-posn 0 0 ) (circle 3 "solid" "blue"))
                                     (make-shape '2 (make-posn 10 10 ) (circle 3 "solid" "blue"))))
               empty)
+
+
 
 ;; findCollisionsShape: shape list[shape] -> list[collision]
 ;; returns the list of collisions one shape has with the rest of the shapes
@@ -288,7 +293,7 @@
 
 
 (check-range (getRight (make-shape 'name (make-posn 0 0) (circle 5 "solid" "green")))
-              4.9 5.1)
+             4.9 5.1)
 
 (define (getBottom shape)
   (+ (posn-y(shape-posn shape)) (* .5 (image-height (shape-image shape)))))
@@ -311,9 +316,9 @@
 ;;~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Do Actions
 
 (define (doActions world)
-     (doActionsList (world-listActions world) world)
-    )
-  ;;doActionsList (world-listActions world) world))
+  (doActionsList (world-listActions world) world)
+  )
+;;doActionsList (world-listActions world) world))
 
 
 (define (doActionsList list world)
@@ -418,7 +423,7 @@
 ;; gives the image of the world 
 (define (drawWorld world)
   
-         
+  
   (update-frame (drawList (world-listShapes world))))
 ;; list -> image
 (define (drawList list)
@@ -495,7 +500,8 @@
 ;; (collisionEvent world -> world
 ;; adds collision event to worl
 (define (addEventToList event old-world)
-  (make-world  (world-listShapes old-world)
+ 
+   (make-world  (world-listShapes old-world)
                (cons event (world-listEvents old-world))
                (world-listActions old-world)))
 
