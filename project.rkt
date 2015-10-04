@@ -115,11 +115,15 @@
                      (make-collisionEvent (make-collision 'circ 'rect)
                                           (make-addShape newRect))
                      (make-collisionEvent (make-collision 'circ 'rect)
-                                          (make-move 'circ (make-vel 5 0)))
+                                          (make-move 'circ (make-vel 5 -1)))
                      (make-collisionEvent (make-collision 'circ 'rect )
                                           (make-stop 'circ))
+;                     (make-collisionEvent (make-collision 'circ 'newRect)
+;                                          (make-jumpOnce 'circ))
                      (make-collisionEvent (make-collision 'circ 'newRect)
-                                          (make-jumpOnce 'circ))))))
+                                          (make-stop 'circ ))
+
+                     ))))
 
 
 
@@ -193,13 +197,15 @@
   ;;                                    build list of collisions
   
   
-  ;; findCollisions: list[shape] -> list[collision]
+  ;; findCollisions: list[shape] -> list[collision] 
   ;; gives back list of all collisions
   ;; note: objects always will collide with themselves and give an extra collision
   (define (findCollisions listShapes)
     (let ([all-collisions (map (lambda (a-shape) (findCollisionsShape a-shape listShapes))
                                listShapes)])
-      (flattenListOfList all-collisions )))
+      (begin
+        (print (flattenListOfList all-collisions ))
+        (flattenListOfList all-collisions))))
   (check-expect (findCollisions (list (make-shape '1 (make-posn 0 0 ) (circle 3 "solid" "blue"))
                                       (make-shape '2 (make-posn 0 0 ) (circle 3 "solid" "blue"))))
                 (list (make-collision '1 '1)
@@ -215,7 +221,8 @@
   ;; returns the list of collisions one shape has with the rest of the shapes
   (define (findCollisionsShape shape listShapes)
     (map (lambda (a-shape) (make-collision (shape-name shape) (shape-name a-shape)))
-         (filter (lambda (a-shape) (doCollide shape a-shape))
+         (filter (lambda (a-shape) (and (not (equal? shape a-shape))
+                                             (doCollide shape a-shape)))
                  listShapes)))
   (check-expect (findCollisionsShape (make-shape '1 (make-posn 0 0 ) (circle 3 "solid" "blue"))
                                      (list (make-shape '2 (make-posn 0 0 ) (circle 3 "solid" "blue"))
@@ -403,7 +410,7 @@
   
   
   
-  ;; gives back the 
+  ;; gives back the  
   (define (runList a-list old-world)
     (cond [(empty? a-list) old-world]
           [(cons? a-list)
@@ -438,7 +445,8 @@
                                                                   empty
                                                                   empty))
                 (make-world empty empty empty))
-(check-expect (executeCommand (make-jumpOnce 'a) (make-world empty empty empty))
+(check-expect (executeCommand (make-jumpOnce 'a) (make-world (list (make-shape 'a (make-posn 1 1) (circle 1 "solid" "green")))
+                                                             empty empty))
               (make-world empty empty empty))
   
   ;; (shape world -> world)
