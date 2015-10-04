@@ -23,7 +23,7 @@
 ;; velocity is a (make-vel int int)
 ;; creats an x y velocity
 (define-struct vel(x y) (make-inspector))
-;; posn is (make-posn int int)
+;; posn is (make-posn int int) 
 ;; creates x y position (pre defined)
 
 ;;collision is a (make-collision symbol sybol)
@@ -118,12 +118,12 @@
                                           (make-move 'circ (make-vel 5 -1)))
                      (make-collisionEvent (make-collision 'circ 'rect )
                                           (make-stop 'circ))
-;                     (make-collisionEvent (make-collision 'circ 'newRect)
-;                                          (make-jumpOnce 'circ))
+                     (make-collisionEvent (make-collision 'circ 'newRect)
+                                                               (make-jumpOnce 'circ))
                      (make-collisionEvent (make-collision 'circ 'newRect)
                                           (make-stop 'circ ))
-
-                     ))))
+                     
+                     )))) 
 
 
 
@@ -132,366 +132,378 @@
 ;;~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ INTERPRETER
 (define HEIGHT 500)
 (define WIDTH 500)
-  ;;animation -> void
-  (define (runAnimation animation)
-    (let ([world (runList (animation-listCmd animation) (make-world empty empty empty))])
-      (begin
-        (big-bang WIDTH HEIGHT 1/28 true)
-        (runWorld world))))
-  
-  ;; world -> void 
-  (define (runWorld world)
-    
+;;animation -> void
+(define (runAnimation animation)
+  (let ([world (runList (animation-listCmd animation) (make-world (list (make-shape
+                                                                         'tEdge (make-posn (* .5 WIDTH) 0) (rectangle WIDTH 1 "solid" "white"))
+                                                                        (make-shape
+                                                                         'lEdge (make-posn 0 (* .5 HEIGHT)) (rectangle 1 HEIGHT "solid" "white"))
+                                                                        (make-shape
+                                                                         'rEdge (make-posn WIDTH (* .5 HEIGHT)) (rectangle 1 HEIGHT "solid" "white"))
+                                                                        (make-shape
+                                                                         'bEdge (make-posn HEIGHT (* .5 HEIGHT)) (rectangle WIDTH 1 "solid" "white")))
+                                                                  empty empty))])
     (begin
+      (big-bang WIDTH HEIGHT 1/28 true)
+      (runWorld world))))
+
+;; world -> void 
+(define (runWorld world)
+  
+  (begin
+    
+    (drawWorld world)
+    (sleep/yield .25)
+    (runWorld (doActions (doCollisions world)))
+    
+    
+    ))
+
+
+
+;;~~~~~~~~~~~~~~~~~~~~~~~~ Collisions:
+;; findCollisions (world -> listCollisions)
+;; Docollision: (world) -> world
+(define (doCollisions world)
+  (let ([collList (findCollisions (world-listShapes world))])
+    (doCollisionsList collList world)))
+
+
+
+;;DoCollList list[collision] world -> world
+(define (doCollisionsList collList world)
+  (cond [(empty? collList) world]
+        [(cons? collList) (doCollisionsList (rest collList)
+                                            (runList (map collisionEvent-cmd
+                                                          (filter (lambda (a-colEvent)
+                                                                    (equal? (collisionEvent-collision a-colEvent)
+                                                                            (first collList)))
+                                                                  (world-listEvents world)))
+                                                     world))]))
+
+
+
+(check-expect (doCollisionsList (list (make-collision 'a 'b))
+                                (make-world empty (list
+                                                   (make-collisionEvent
+                                                    (make-collision 'a 'b)
+                                                    (addShape (make-shape '1 (make-posn 0 0) (circle 5 "solid" "green")))))
+                                            empty))
+              (make-world (list
+                           (make-shape '1 (make-posn 0 0 ) (circle 5 "solid" "green")))
+                          (list
+                           (make-collisionEvent
+                            (make-collision 'a 'b)
+                            (addShape (make-shape '1 (make-posn 0 0) (circle 5 "solid" "green")))))
+                          empty))
+
+;; need this fun to search through list events, add list of events that need to be done, then runcmd list of active events
+;; (runcmdlist (getCollisionEvents (find Collisions)) world)
+
+;; findCollisions: (list Shapes) -> (hasCollision shape list)
+;;                                   (if shape = (first list) -> skip over)
+;;                                    build list of collisions
+
+
+;; findCollisions: list[shape] -> list[collision] 
+;; gives back list of all collisions
+;; note: objects always will collide with themselves and give an extra collision
+(define (findCollisions listShapes)
+  (let ([all-collisions (map (lambda (a-shape) (findCollisionsShape a-shape listShapes))
+                             listShapes)])
+    
       
-      (drawWorld world)
-      (sleep/yield .25)
-      (runWorld (doActions (doCollisions world)))
-      
-      
-      ))
-  
-  
-  
-  ;;~~~~~~~~~~~~~~~~~~~~~~~~ Collisions:
-  ;; findCollisions (world -> listCollisions)
-  ;; Docollision: (world) -> world
-  (define (doCollisions world)
-    (let ([collList (findCollisions (world-listShapes world))])
-      (doCollisionsList collList world)))
-  
-  
-  
-  ;;DoCollList list[collision] world -> world
-  (define (doCollisionsList collList world)
-    (cond [(empty? collList) world]
-          [(cons? collList) (doCollisionsList (rest collList)
-                                              (runList (map collisionEvent-cmd
-                                                            (filter (lambda (a-colEvent)
-                                                                      (equal? (collisionEvent-collision a-colEvent)
-                                                                              (first collList)))
-                                                                    (world-listEvents world)))
-                                                       world))]))
-  
-  
-  
-  (check-expect (doCollisionsList (list (make-collision 'a 'b))
-                                  (make-world empty (list
-                                                     (make-collisionEvent
-                                                      (make-collision 'a 'b)
-                                                      (addShape (make-shape '1 (make-posn 0 0) (circle 5 "solid" "green")))))
-                                              empty))
-                (make-world (list
-                             (make-shape '1 (make-posn 0 0 ) (circle 5 "solid" "green")))
-                            (list
-                             (make-collisionEvent
-                              (make-collision 'a 'b)
-                              (addShape (make-shape '1 (make-posn 0 0) (circle 5 "solid" "green")))))
-                            empty))
-  
-  ;; need this fun to search through list events, add list of events that need to be done, then runcmd list of active events
-  ;; (runcmdlist (getCollisionEvents (find Collisions)) world)
-  
-  ;; findCollisions: (list Shapes) -> (hasCollision shape list)
-  ;;                                   (if shape = (first list) -> skip over)
-  ;;                                    build list of collisions
-  
-  
-  ;; findCollisions: list[shape] -> list[collision] 
-  ;; gives back list of all collisions
-  ;; note: objects always will collide with themselves and give an extra collision
-  (define (findCollisions listShapes)
-    (let ([all-collisions (map (lambda (a-shape) (findCollisionsShape a-shape listShapes))
-                               listShapes)])
-      (begin
-        (print (flattenListOfList all-collisions ))
-        (flattenListOfList all-collisions))))
-  (check-expect (findCollisions (list (make-shape '1 (make-posn 0 0 ) (circle 3 "solid" "blue"))
-                                      (make-shape '2 (make-posn 0 0 ) (circle 3 "solid" "blue"))))
-                (list (make-collision '1 '1)
-                      (make-collision '1 '2)
-                      (make-collision '2 '1)
-                      (make-collision '2 '2)))
-  (check-expect (findCollisions (list (make-shape '1 (make-posn 0 0 ) (circle 3 "solid" "blue"))
-                                      (make-shape '2 (make-posn 10 10 ) (circle 3 "solid" "blue"))))
-                (list (make-collision '1 '1)
-                      (make-collision '2 '2)))
-  
-  ;; findCollisionsShape: shape list[shape] -> list[collision]
-  ;; returns the list of collisions one shape has with the rest of the shapes
-  (define (findCollisionsShape shape listShapes)
-    (map (lambda (a-shape) (make-collision (shape-name shape) (shape-name a-shape)))
-         (filter (lambda (a-shape) (and (not (equal? shape a-shape))
-                                             (doCollide shape a-shape)))
-                 listShapes)))
-  (check-expect (findCollisionsShape (make-shape '1 (make-posn 0 0 ) (circle 3 "solid" "blue"))
-                                     (list (make-shape '2 (make-posn 0 0 ) (circle 3 "solid" "blue"))
-                                           (make-shape '3 (make-posn 0 0 ) (circle 3 "solid" "blue"))))
-                (list (make-collision '1 '2)
-                      (make-collision '1 '3)))
-  (check-expect (findCollisionsShape (make-shape '1 (make-posn 0 0 ) (circle 3 "solid" "blue"))
-                                     (list (make-shape '2 (make-posn 10 10 ) (circle 3 "solid" "blue"))
-                                           (make-shape '3 (make-posn 0 0 ) (circle 3 "solid" "blue"))))
-                (list (make-collision '1 '3)))
-  
-  (define (doCollide shape1 shape2)  
-    (let ([shape1Left (posn-x (shape-posn shape1))]
-          [shape1Right (getRight shape1)]
-          [shape1Top (posn-y (shape-posn shape1))]
-          [shape1Bottom (getBottom shape1)]
-          [shape2Left (posn-x (shape-posn shape2))]
-          [shape2Right (getRight shape2)]
-          [shape2Top (posn-y (shape-posn shape2))]
-          [shape2Bottom (getBottom shape2)]
-          )
-      ;; x overlap:
-      (and (< shape1Left shape2Right)
-           (> shape1Right shape2Left)
-           (< shape1Top shape2Bottom)
-           (> shape1Bottom shape2Top))))
-  
-  (check-expect (doCollide (make-shape '1 (make-posn 0 0 ) (circle 3 "solid" "blue"))
-                           (make-shape '1 (make-posn 0 0 ) (circle 3 "solid" "blue")))
-                true)
-  (check-expect (doCollide (make-shape '1 (make-posn 10 0 ) (circle 3 "solid" "blue"))
-                           (make-shape '1 (make-posn 0 0 ) (circle 3 "solid" "blue")))
-                false)
-  (define (getRight shape)        
-    (+(posn-x(shape-posn shape)) (image-width(shape-image shape))))
-  ;;(define (getBottom shape) ENDING HERE
-  
-  
-  (check-expect (getRight (make-shape 'name (make-posn 0 0) (circle 5 "solid" "green")))
-                10)
-  (define (getBottom shape)
-    (+ (posn-y(shape-posn shape)) (image-height (shape-image shape))))
-  (check-expect (getBottom (make-shape 'name (make-posn 0 0 ) (circle 5 "solid" "green")))
-                10)
-  
-  ;; FlattenListOfList: list[list[?]] -> list[?]
-  (define (flattenListOfList list)
-    (cond [(empty? list) empty]
-          [(cons? list ) (append (first list) (flattenListOfList (rest list)))]))
-  (check-expect (flattenListOfList (list (list 1 2 3) (list 4 5 6)))
-                (list 1 2 3 4 5 6))
-  ;;~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Do Actions
-  
-  (define (doActions world)
-    (doActionsList (world-listActions world) world))
-  
-  
-  (define (doActionsList list world)
-    (cond [(empty? list) world]
-          [(cons? list)(doActionsList (rest list) (doAction (first list) world))]))
-  
-  
-  
-  (check-expect (doActionsList (list(make-move 'circ (make-vel 5 5)))
-                               
-                               (make-world (list (make-shape 'circ (make-posn 0 0) (circle 1 "solid" "green")))
-                                           empty empty))
-                (make-world (list (make-shape 'circ (make-posn 5 5) (circle 1 "solid" "green"))) 
-                            empty empty))
-  
-  ;; action world -> world after action 
-  (define (doAction action world)
-    (cond [(move? action) (doMove action world)]
-          [(jump? action) (doJump (jump-shapeName action) world)]))
-  
-  (check-expect (doAction (make-move 'circ (make-vel 5 5))
-                          (make-world (list (make-shape 'circ (make-posn 0 0) (circle 1 "solid" "green")))
-                                      empty empty))
-                (make-world (list (make-shape 'circ (make-posn 5 5) (circle 1 "solid" "green"))) 
-                            empty empty))
-  ;; doJump: symbol world -> world
-  
-  (define (doJump name world)
-    (let ([thisShape (findShape name (world-listShapes world))])
-      (cond [(shape? thisShape)
-             (make-world
-              (cons (make-shape name (randomPosition) (shape-image thisShape))
-                    (removeShapeFromList name (world-listShapes world)))
-              (world-listEvents world)
-              (world-listActions world))]
-            [else world])))
-  
+      (flattenListOfList all-collisions)))
+(check-expect (findCollisions (list (make-shape '1 (make-posn 0 0 ) (circle 3 "solid" "blue"))
+                                    (make-shape '2 (make-posn 0 0 ) (circle 3 "solid" "blue"))))
+              (list
+               (make-collision '1 '2)
+               (make-collision '2 '1)
+               ))
+(check-expect (findCollisions (list (make-shape '1 (make-posn 0 0 ) (circle 3 "solid" "blue"))
+                                    (make-shape '2 (make-posn 10 10 ) (circle 3 "solid" "blue"))))
+              empty)
+
+;; findCollisionsShape: shape list[shape] -> list[collision]
+;; returns the list of collisions one shape has with the rest of the shapes
+(define (findCollisionsShape shape listShapes)
+  (map (lambda (a-shape) (make-collision (shape-name shape) (shape-name a-shape)))
+       (filter (lambda (a-shape) (and (not (equal? shape a-shape))
+                                      (doCollide shape a-shape)))
+               listShapes)))
+(check-expect (findCollisionsShape (make-shape '1 (make-posn 0 0 ) (circle 3 "solid" "blue"))
+                                   (list (make-shape '2 (make-posn 0 0 ) (circle 3 "solid" "blue"))
+                                         (make-shape '3 (make-posn 0 0 ) (circle 3 "solid" "blue"))))
+              (list (make-collision '1 '2)
+                    (make-collision '1 '3)))
+(check-expect (findCollisionsShape (make-shape '1 (make-posn 0 0 ) (circle 3 "solid" "blue"))
+                                   (list (make-shape '2 (make-posn 10 10 ) (circle 3 "solid" "blue"))
+                                         (make-shape '3 (make-posn 0 0 ) (circle 3 "solid" "blue"))))
+              (list (make-collision '1 '3)))
+
+(define (doCollide shape1 shape2)  
+  (let ([shape1Left (getLeft shape1)]
+        [shape1Right (getRight shape1)]
+        [shape1Top (getTop shape1)]
+        [shape1Bottom (getBottom shape1)]
+        [shape2Left (getLeft shape2)]
+        [shape2Right (getRight shape2)]
+        [shape2Top (getTop shape2)]
+        [shape2Bottom (getBottom shape2)]
+        )
+    ;; x overlap:
+    (and (< shape1Left shape2Right)
+         (> shape1Right shape2Left)
+         (< shape1Top shape2Bottom)
+         (> shape1Bottom shape2Top))))
+
+(check-expect (doCollide (make-shape '1 (make-posn 0 0 ) (circle 3 "solid" "blue"))
+                         (make-shape '1 (make-posn 0 0 ) (circle 3 "solid" "blue")))
+              true)
+(check-expect (doCollide (make-shape '1 (make-posn 10 0 ) (circle 3 "solid" "blue"))
+                         (make-shape '1 (make-posn 0 0 ) (circle 3 "solid" "blue")))
+              false)
+(define (getRight shape)        
+  (+(posn-x(shape-posn shape)) (* .5 (image-width(shape-image shape)))))
+
+
+
+(check-range (getRight (make-shape 'name (make-posn 0 0) (circle 5 "solid" "green")))
+              4.9 5.1)
+
+(define (getBottom shape)
+  (+ (posn-y(shape-posn shape)) (* .5 (image-height (shape-image shape)))))
+
+(check-range  (getBottom (make-shape 'name (make-posn 0 0 ) (circle 5 "solid" "green")))
+              4.9 5.1)
+(define (getTop shape)
+  (+ (posn-y(shape-posn shape)) (* -.5 (image-height (shape-image shape)))))
+
+(define (getLeft shape)
+  (+ (posn-x(shape-posn shape)) (* -.5 (image-width (shape-image shape)))))
+
+
+;; FlattenListOfList: list[list[?]] -> list[?]
+(define (flattenListOfList list)
+  (cond [(empty? list) empty]
+        [(cons? list ) (append (first list) (flattenListOfList (rest list)))]))
+(check-expect (flattenListOfList (list (list 1 2 3) (list 4 5 6)))
+              (list 1 2 3 4 5 6))
+;;~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Do Actions
+
+(define (doActions world)
+     (doActionsList (world-listActions world) world)
+    )
+  ;;doActionsList (world-listActions world) world))
+
+
+(define (doActionsList list world)
+  (cond [(empty? list) world]
+        [(cons? list)(doActionsList (rest list) (doAction (first list) world))]))
+
+
+
+(check-expect (doActionsList (list(make-move 'circ (make-vel 5 5)))
+                             
+                             (make-world (list (make-shape 'circ (make-posn 0 0) (circle 1 "solid" "green")))
+                                         empty empty))
+              (make-world (list (make-shape 'circ (make-posn 5 5) (circle 1 "solid" "green"))) 
+                          empty empty))
+
+;; action world -> world after action 
+(define (doAction action world)
+  (cond [(move? action) (doMove action world)]
+        [(jump? action) (doJump (jump-shapeName action) world)]
+        [else world]))
+
+(check-expect (doAction (make-move 'circ (make-vel 5 5))
+                        (make-world (list (make-shape 'circ (make-posn 0 0) (circle 1 "solid" "green")))
+                                    empty empty))
+              (make-world (list (make-shape 'circ (make-posn 5 5) (circle 1 "solid" "green"))) 
+                          empty empty))
+;; doJump: symbol world -> world
+
+(define (doJump name world)
+  (let ([thisShape (findShape name (world-listShapes world))])
+    (cond [(shape? thisShape)
+           (make-world
+            (cons (make-shape name (randomPosition) (shape-image thisShape))
+                  (removeShapeFromList name (world-listShapes world)))
+            (world-listEvents world)
+            (world-listActions world))]
+          [else world])))
+
 
 ;;TODO
 
-  ;; randomPosiion : void -> position
+;; randomPosiion : void -> position
 (define (randomPosition)
   (make-posn (random WIDTH (current-pseudo-random-generator))
              (random HEIGHT (current-pseudo-random-generator))))
-  
-  ;; doMove world -> world
-  (define (doMove move world)
-    (let ([thisShape  (findShape (move-shapeName move) (world-listShapes world))])
-      (cond [(shape? thisShape)
-             (make-world
-              (cons (moveShape thisShape (move-vel move))
-                    (removeShapeFromList (shape-name thisShape) (world-listShapes world)))
-              (world-listEvents world)
-              (world-listActions world))]
-            [else world]))) 
-  
-  (check-expect (doMove (make-move 'circ (make-vel 5 5))
-                        (make-world (list (make-shape 'circ (make-posn 0 0) (circle 1 "solid" "green")))
-                                    empty
-                                    empty))
-                (make-world (list (make-shape 'circ (make-posn 5 5) (circle 1 "solid" "green"))) 
-                            empty empty))
-  
-  
-  ;; name list[shape] -> shape 
-  (define (findShape name list)
-    (let ([shape (filter (lambda (aShape) (symbol=? name (shape-name aShape))) list)]) 
-      (cond [(cons? shape)(first shape)]
-            [else void]))) 
-  
-  (check-expect (findShape 'circ (list (make-shape 'circ (make-posn 0 0 ) (circle 1 "solid" "blue"))))
-                (make-shape 'circ (make-posn 0 0 ) (circle 1 "solid" "blue")))
-  
-  ;; list -> list
-  (define (removeShapeFromList name list)
-    (cond [(empty? list) empty]
-          [(cons? list )
-           (cond [(symbol=? name (shape-name (first list)))
-                  (rest list)]
-                 [else (cons (first list)
-                             (removeShapeFromList name (rest list)))])]))
-  
-  
-  (check-expect (removeShapeFromList 'testing
-                                     (list
-                                      (make-shape 'test (make-posn 0 0) (circle 1 "solid" "blue" )) 
-                                      (make-shape 'testing void void)))
-                (list (make-shape 'test (make-posn 0 0) (circle 1 "solid" "blue" )))) 
-  ;; shape -> shape
-  (define (moveShape shape vel)
-    (make-shape (shape-name shape)
-                (make-posn (+ (posn-x (shape-posn shape)) (vel-x vel)) 
-                           (+ (posn-y (shape-posn shape)) (vel-y vel)))
-                (shape-image shape)))
-  
-  (check-expect (moveShape  (make-shape 'circ (make-posn 0 0 ) (circle 1 "solid" "blue")) (make-vel 5 5 ))
-                (make-shape 'circ (make-posn 5 5  ) (circle 1 "solid" "blue")))
-  ;;~~~~~~~~~~~~~~~~~~~~~~~~~DRAWING
-  
-  ;; (world-> void)
-  ;; gives the image of the world 
-  (define (drawWorld world) 
-    (update-frame (drawList (world-listShapes world)))) 
-  ;; list -> image
-  (define (drawList list)
-    (cond[(empty? list) (empty-scene WIDTH HEIGHT)]
-         [(cons? list)
-          (place-image (shape-image (first list))
-                       (posn-x (shape-posn (first list)))
-                       (posn-y (shape-posn (first list)))
-                       (drawList (rest list)))]))
-  ;;~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~HELPER FUN
-  ;; an action is either
-  ;;    - (make-move symbol(name) vel)
-  ;;    - (make-jump symbol(name) )
-  ;;    - (make-jumpOnce symbol(name) )
-  (define (action? cmd)
-    (or (move? cmd)
-        (jump? cmd)
-        (jumpOnce? cmd)))
-  
-  
-  ;;~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~MAKING WORLD
-  ;; an event is either :
-  ;;    - (make-make-CollisionEvent collision cmd)
-  
-  ;; (make-struct list[shapes] list[events] list[actions]
-  (define-struct world (listShapes listEvents listActions) (make-inspector))
-  
-  
-  
-  
-  ;; gives back the  
-  (define (runList a-list old-world)
-    (cond [(empty? a-list) old-world]
-          [(cons? a-list)
-           (let ([L1 (first a-list)])
-             ;;                   adds rest of elements in list, to the world that contains the current element
-             (cond [(addShape?  L1) (runList (rest a-list) (addShapeToList (addShape-shape L1) old-world))]
-                   [(collisionEvent? L1) (runList (rest a-list) (addEventToList L1 old-world))]
-                   [(action? L1)(runList (rest a-list) (addActionToList L1 old-world))]
-                   [else (runList (rest a-list) (executeCommand L1 old-world))]))])) ;;TODO
-  
-  (define (executeCommand command world)
-    (cond [(removeShape? command) (make-world
-                                   (removeShapeFromList (removeShape-shapeName command) (world-listShapes world))
-                                   (world-listEvents world)
-                                   (world-listActions world))]
-          [(jumpOnce? command) (doJump (jumpOnce-shapeName command) world)]
-                                
-          [(stop? command) (make-world
-                            (world-listShapes world)
-                            (world-listEvents world)
-                            (filter (lambda (cmd) (not (symbol=? (cond [(move? cmd) (move-shapeName cmd)]
-                                                                       [(jump? cmd) (jump-shapeName cmd)]
-                                                                       [else 'false])
-                                                                 (stop-shapeName command))))
-                                    (world-listActions world)))]))
+
+;; doMove world -> world
+(define (doMove move world)
+  (let ([thisShape  (findShape (move-shapeName move) (world-listShapes world))])
+    (cond [(shape? thisShape)
+           (make-world
+            (cons (moveShape thisShape (move-vel move))
+                  (removeShapeFromList (shape-name thisShape) (world-listShapes world)))
+            (world-listEvents world)
+            (world-listActions world))]
+          [else world]))) 
+
+(check-expect (doMove (make-move 'circ (make-vel 5 5))
+                      (make-world (list (make-shape 'circ (make-posn 0 0) (circle 1 "solid" "green")))
+                                  empty
+                                  empty))
+              (make-world (list (make-shape 'circ (make-posn 5 5) (circle 1 "solid" "green"))) 
+                          empty empty))
 
 
-  (check-expect (executeCommand (make-stop 'a) (make-world empty empty (list (make-move 'ab (make-vel 1 1)) (make-move 'a (make-vel 1 1))
-                                                                             (make-jump 'a))))
-                (make-world empty empty (list (make-move 'ab (make-vel 1 1)))))
-  (check-expect (executeCommand (make-removeShape 'a) (make-world (list (make-shape 'a (make-posn 1 1 ) (circle 5 "solid" "green")))
-                                                                  empty
-                                                                  empty))
-                (make-world empty empty empty))
-(check-expect (executeCommand (make-jumpOnce 'a) (make-world (list (make-shape 'a (make-posn 1 1) (circle 1 "solid" "green")))
-                                                             empty empty))
+;; name list[shape] -> shape 
+(define (findShape name list)
+  (let ([shape (filter (lambda (aShape) (symbol=? name (shape-name aShape))) list)]) 
+    (cond [(cons? shape)(first shape)]
+          [else void]))) 
+
+(check-expect (findShape 'circ (list (make-shape 'circ (make-posn 0 0 ) (circle 1 "solid" "blue"))))
+              (make-shape 'circ (make-posn 0 0 ) (circle 1 "solid" "blue")))
+
+;; list -> list
+(define (removeShapeFromList name list)
+  (cond [(empty? list) empty]
+        [(cons? list )
+         (cond [(symbol=? name (shape-name (first list)))
+                (rest list)]
+               [else (cons (first list)
+                           (removeShapeFromList name (rest list)))])]))
+
+
+(check-expect (removeShapeFromList 'testing
+                                   (list
+                                    (make-shape 'test (make-posn 0 0) (circle 1 "solid" "blue" )) 
+                                    (make-shape 'testing void void)))
+              (list (make-shape 'test (make-posn 0 0) (circle 1 "solid" "blue" )))) 
+;; shape -> shape
+(define (moveShape shape vel)
+  (make-shape (shape-name shape)
+              (make-posn (+ (posn-x (shape-posn shape)) (vel-x vel)) 
+                         (+ (posn-y (shape-posn shape)) (vel-y vel)))
+              (shape-image shape)))
+
+(check-expect (moveShape  (make-shape 'circ (make-posn 0 0 ) (circle 1 "solid" "blue")) (make-vel 5 5 ))
+              (make-shape 'circ (make-posn 5 5  ) (circle 1 "solid" "blue")))
+;;~~~~~~~~~~~~~~~~~~~~~~~~~DRAWING
+
+;; (world-> void)
+;; gives the image of the world 
+(define (drawWorld world)
+  
+         
+  (update-frame (drawList (world-listShapes world))))
+;; list -> image
+(define (drawList list)
+  (cond[(empty? list) (empty-scene WIDTH HEIGHT)]
+       [(cons? list)
+        (place-image (shape-image (first list))
+                     (posn-x (shape-posn (first list)))
+                     (posn-y (shape-posn (first list)))
+                     (drawList (rest list)))]))
+;;~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~HELPER FUN
+;; an action is either
+;;    - (make-move symbol(name) vel)
+;;    - (make-jump symbol(name) )
+;;    - (make-jumpOnce symbol(name) )
+(define (action? cmd)
+  (or (move? cmd)
+      (jump? cmd)
+      ))
+
+
+;;~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~MAKING WORLD
+;; an event is either :
+;;    - (make-make-CollisionEvent collision cmd)
+
+;; (make-struct list[shapes] list[events] list[actions]
+(define-struct world (listShapes listEvents listActions) (make-inspector))
+
+
+
+
+;; gives back the  
+(define (runList a-list old-world)
+  (cond [(empty? a-list) old-world]
+        [(cons? a-list)
+         (let ([L1 (first a-list)])
+           ;;                   adds rest of elements in list, to the world that contains the current element
+           (cond [(addShape?  L1) (runList (rest a-list) (addShapeToList (addShape-shape L1) old-world))]
+                 [(collisionEvent? L1) (runList (rest a-list) (addEventToList L1 old-world))]
+                 [(action? L1)(runList (rest a-list) (addActionToList L1 old-world))]
+                 [else (runList (rest a-list) (executeCommand L1 old-world))]))])) ;;TODO
+
+(define (executeCommand command world)
+  (cond [(removeShape? command) (make-world
+                                 (removeShapeFromList (removeShape-shapeName command) (world-listShapes world))
+                                 (world-listEvents world)
+                                 (world-listActions world))]
+        [(jumpOnce? command) (doJump (jumpOnce-shapeName command) world)]
+        
+        [(stop? command) (make-world
+                          (world-listShapes world)
+                          (world-listEvents world)
+                          (filter (lambda (cmd) (not (symbol=? (cond [(move? cmd) (move-shapeName cmd)]
+                                                                     [(jump? cmd) (jump-shapeName cmd)]
+                                                                     [else 'false])
+                                                               (stop-shapeName command))))
+                                  (world-listActions world)))]
+        [else world]))
+
+
+(check-expect (executeCommand (make-stop 'a) (make-world empty empty (list (make-move 'ab (make-vel 1 1)) (make-move 'a (make-vel 1 1))
+                                                                           (make-jump 'a))))
+              (make-world empty empty (list (make-move 'ab (make-vel 1 1)))))
+(check-expect (executeCommand (make-removeShape 'a) (make-world (list (make-shape 'a (make-posn 1 1 ) (circle 5 "solid" "green")))
+                                                                empty
+                                                                empty))
               (make-world empty empty empty))
-  
-  ;; (shape world -> world)
-  ;; adds a shape to a world
-  (define (addShapeToList shape old-world)
-    (make-world (cons shape (world-listShapes old-world)) (world-listEvents old-world) (world-listActions old-world)))
-  
-  ;; (collisionEvent world -> world
-  ;; adds collision event to worl
-  (define (addEventToList event old-world)
-    (make-world  (world-listShapes old-world)
-                 (cons event (world-listEvents old-world))
-                 (world-listActions old-world)))
-  
-  ;; (action world -> world) 
-  ;; adds action to world
-  (define (addActionToList action old-world)
-    (make-world  (world-listShapes old-world)
-                 (world-listEvents old-world)
-                 (cons action (world-listActions old-world))))
-  
-  
-  
-  
-  
-  
-  ;;~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ testing
-  (define TEST_ANIMATION (make-animation (list
-                                          (make-addShape
-                                           (make-shape 'shape (make-posn 1 1 )
-                                                       (circle 1 "solid" "green")))
-                                          (make-collisionEvent null null)
-                                          (make-move 'shape (make-vel 1 1 )))))
-  
-  (check-expect (runList (animation-listCmd TEST_ANIMATION) (make-world empty empty empty))
-                (make-world (list (make-shape 'shape (make-posn 1 1)
-                                              (circle 1 "solid" "green")))
-                            (list (make-collisionEvent null null))
-                            (list (make-move 'shape (make-vel 1 1)))))
-  
-  
-  
-  
-  
-  
-  
-  
-  (test)
+
+
+;; (shape world -> world)
+;; adds a shape to a world
+(define (addShapeToList shape old-world)
+  (make-world (cons shape (world-listShapes old-world)) (world-listEvents old-world) (world-listActions old-world)))
+
+;; (collisionEvent world -> world
+;; adds collision event to worl
+(define (addEventToList event old-world)
+  (make-world  (world-listShapes old-world)
+               (cons event (world-listEvents old-world))
+               (world-listActions old-world)))
+
+;; (action world -> world) 
+;; adds action to world
+(define (addActionToList action old-world)
+  (make-world  (world-listShapes old-world)
+               (world-listEvents old-world)
+               (cons action (world-listActions old-world))))
+
+
+
+
+
+
+;;~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ testing
+(define TEST_ANIMATION (make-animation (list
+                                        (make-addShape (make-shape 'shape (make-posn 250 250) (rectangle 100 10 "solid" "green")))
+                                        (make-addShape (make-shape 'shape2 (make-posn 350 250) (rectangle 10 100 "solid" "blue"))))))
+
+
+
+
+
+
+
+
+
+
+(test)
