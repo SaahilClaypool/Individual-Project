@@ -128,16 +128,17 @@
     (make-animation (list
                      ;;(make-addShape circ)
                      (add circle named circ at 20 20 radius 7 color green)
-                     (make-addShape rect)
+                     (add rectangle named rect at 5 100 width 100 height 10 color blue)
                      (addMove circ by 0 5)
 ;                     (make-collisionEvent (make-collision 'circ 'rect)
 ;                                          (make-addShape newRect))
                      (when circ hits rect then (add rectangle named newRect at 80 80 width 10 height 50 color orange))
-                     (make-collisionEvent (make-collision 'circ 'rect)
-                                          (make-move 'circ (make-vel 5 -1)))
-                     (make-collisionEvent (make-collision 'circ 'rect )
-                                          (make-stop 'circ))
-                    
+;                     (make-collisionEvent (make-collision 'circ 'rect)
+;                                          (make-move 'circ (make-vel 5 -1)))
+                     (when circ hits rect then (addMove circ by 5 -1))
+;                     (make-collisionEvent (make-collision 'circ 'rect )
+;                                          (make-stop 'circ))
+                     (when circ hits rect then (make-stop 'circ))
                      (make-collisionEvent (make-collision 'circ 'newRect)
                                           (make-jumpOnce 'circ))
                      (make-collisionEvent (make-collision 'circ 'newRect)
@@ -171,15 +172,12 @@
 
 ;; world -> void 
 (define (runWorld world)
-  
-  (begin
-    
-    (drawWorld world)
-    (sleep/yield .25)
-    (runWorld (doActions (doCollisions world)))
-    
-    
-    ))
+  (cond ((empty? (world-listActions world)) (drawWorld world))
+  (else
+   (begin
+     (drawWorld world)
+     (sleep/yield .25)
+     (runWorld (doActions (doCollisions world)))))))
 
 
 
