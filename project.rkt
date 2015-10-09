@@ -2,9 +2,17 @@
 ;;Saahil Claypool Individual Project
 
 #|     NOTE: This is more of a simulation than an animation. Professor Rich said this was fine. 
+1. To run an animation, type (runAnimation animation) into the interactions window. The pre-defined animations are
+     - animationA
+     - animationB
+     - animationC
 
-
-
+2. This is more of a simulation than an animation. This means the collisions and actions are event driven rather than executed in a pre set list.
+   This language includes macros, collisions, events for each collision and the basic commands such as move jump and delete.
+3. In my desing phase, I planned on making different shapes different structures. For example, I would have a circleObject structure and a rectangleObject structure. I changed the shape definition to instead just take in an image of either a circle or a rectangle. I also had a repeat command that was planned to repeat a certain command or block of commands, but when I implemented the design the actions were implicitly repeated and the explicit repeat command became redundant. I also added a structure named collision to represent collisions and made slight changes to names for clarity.
+4. The shapes should hold their own velocity. This would make things like a bounce function that reverses a shape's x velocity or y velocity much less complicated. It is still possible with my implementation, but the code would not be nearly as clean. This also makes the "move" functions more complicated as they now need to find and stop the previous move commands for that shape rather than changing the velocity of an object.
+ Additionally, it would better if my collision events took in lists of collisions. This would make creating animations less repatative.
+addShape may not be a needed command but it may help add clarity. 
 |#
 
 
@@ -45,37 +53,43 @@
     [(add rectangle named name at intX intY width intW height intH color theColor)
      (make-addShape (make-shape 'name (make-posn intX intY) (rectangle intW intH "solid" 'theColor)))]))
 
+
+;; macro to make move command easier
 (define-syntax addMove
   (syntax-rules (by)
-    [(move name by intX intY)
+    [(addMove name by intX intY)
      (make-move 'name (make-vel intX intY))]))
-;; make eventList -> macro to convert list to a bunch of make events
 
+;; make an animation
 (define-syntax create
   (syntax-rules ()
     [(create name fun1 ...)
      (define name (make-animation (list fun1 ...)))]))
 
+;; macro to make collision sytax less complicated. 
 (define-syntax when
   (syntax-rules(hits then) 
     [(when name hits name2 then command  )
      (make-collisionEvent (make-collision 'name 'name2)
                             command )])) 
-
+;; macro to make remove shape less complicated
 (define-syntax delete
   (syntax-rules ()
     [(delete shape)
      (make-removeShape 'shape)]))
 
+;;macro to amke stop command slightly less complicated
 (define-syntax stopMoving
   (syntax-rules ()
     [(stopMoving shape)
      (make-stop 'shape)]))
-
+;;macro to make shape jump once
 (define-syntax singleJump
   (syntax-rules ()
     [(singleJump shape)
      (make-jumpOnce 'shape)]))
+
+;; macro to make a shape jump constantly
 (define-syntax jumpRepeatedly
   (syntax-rules ()
     [(jumpRepeatedly shape)
@@ -84,16 +98,6 @@
 ;; COMMANDS
 
 
-#|a cmd is either a
-    (make-addShape shape)
-    (make-removeShape shapeName)
-    (make-jump shapeName)
-    (make-move shapeName vel)
-    (make-stop shapeName)
-    (make-collisionEvent collision cmd)
-
-
-|#
 
 ;; addShape: is (make-addShape shape) 
 (define-struct addShape (shape) (make-inspector))
@@ -121,51 +125,27 @@
 
 ;; ~~~~~~~~~~~~~~~~~~~~~~~EXAMPLES
 
-;(define animationA
-;  (let ([circ (make-shape 'circ (make-posn 10 5) (circle 5 "solid" "blue"))]
-;        [rect (make-shape 'rect (make-posn 100 5)(rectangle 5 100 "solid" "green"))]
-;        [collision (make-collision 'circ 'rect)]
-;        )
-;    (make-animation (list
-;                     (make-addShape circ)
-;                     (make-addShape rect)
-;                     (make-move 'circ (make-vel 5 1))
-;                     
-;                     (make-collisionEvent collision (make-removeShape 'rect))
-;                     (make-collisionEvent collision (make-move 'circ (make-vel -5 1)))
-;                     (make-collisionEvent collision (make-stop 'circ))
-;                     
-;                     (make-collisionEvent (make-collision 'lEdge 'circ) (make-stop 'circ))))))
+;; these examples are created with macros
 
+
+;; Creats an animation. In this , a circle moves from left to right until it hits a rectangle, it then deletes that rectangle and bounces back
+;; until it hits a wall.
 (create animationA
         (add circle named circ at 10 5 radius 5 color blue)
         (add rectangle named rect at 100 5 width 5 height 100 color green)
         (addMove circ by 5 1)
         (when circ hits rect then (delete rect))
         (when circ hits rect then (addMove circ by -5 1))
-;        (when circ hits rect then (stopMoving circ))
         (when circ hits lEdge then (stopMoving circ)))
 
-;(define animationB
-;  (let ([circ (make-shape 'circ (make-posn 100 100) (circle 5 "solid" "blue"))]
-;        )
-;    (make-animation (list
-;                     (make-addShape circ)
-;                     (make-jump 'circ)
-;                     (make-collisionEvent (make-collision 'circ 'tEdge)
-;                                          (make-stop 'circ))))))
-;
+;;Creates an animation where a ball jumps randomly accross the screen until comming into contact with an edge 
 (create animationB
         (add circle named circ at 100 100 radius 5 color blue)
         (jumpRepeatedly circ)
         (when circ hits tEdge then (stopMoving circ)))
 
-;(define animationC
-;  (let ([circ (make-shape 'circ (make-posn 20 20 ) (circle 7 "solid" "red"))]
-;        [rect (make-shape 'rect (make-posn 5 100 ) (rectangle 100 10 "solid" "blue"))]
-;        [newRect (make-shape 'newRect (make-posn 80 80 ) (rectangle 10 50 "solid" "orange"))]
-;        )
-    ;;(make-animation (list
+;; Creates an animation with a ball and rectangle. The ball moves down until it hits the rectangle then bounces to the right. The bounce creates a new
+;; rectangle to the right, and when the ball hits this it jumps to a random location and stops moving. 
     (create animationC
 
                      (add circle named circ at 20 20 radius 7 color green)
@@ -189,9 +169,12 @@
 
 
 ;;~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ INTERPRETER
+;; screen size constants
+
 (define HEIGHT 500)
 (define WIDTH 500)
 ;;animation -> void
+;; creates a world object and starts the running of this world. The world has constants for each edge
 (define (runAnimation animation)
   (let ([world (runList (animation-listCmd animation) (make-world (list (make-shape
                                                                          'tEdge (make-posn (* .5 WIDTH) -8) (rectangle (* 2 WIDTH) 20 "solid" "red"))
@@ -206,7 +189,8 @@
       (big-bang WIDTH HEIGHT 1/28 true)
       (runWorld world))))
 
-;; world -> void 
+;; world -> void
+;; runs the world
 (define (runWorld world)
   (cond ((empty? (world-listActions world)) (drawWorld world))
   (else
@@ -218,15 +202,17 @@
 
 
 ;;~~~~~~~~~~~~~~~~~~~~~~~~ Collisions:
-;; findCollisions (world -> listCollisions)
-;; Docollision: (world) -> world
+
+;; doCollisions (world) -> world
+;; creates a world after each collision has been resolved
 (define (doCollisions world)
   (let ([collList (findCollisions (world-listShapes world))])
     (doCollisionsList collList world)))
 
 
 
-;;DoCollList list[collision] world -> world
+;;doCollList list[collision] world -> world
+;; executes list of collisions
 (define (doCollisionsList collList world)
   (cond [(empty? collList) world]
         [(cons? collList) (doCollisionsList (rest collList)
@@ -238,7 +224,7 @@
                                                      world))]))
 
 
-
+;;testing
 (check-expect (doCollisionsList (list (make-collision 'a 'b))
                                 (make-world empty (list
                                                    (make-collisionEvent
@@ -253,23 +239,18 @@
                             (addShape (make-shape '1 (make-posn 0 0) (circle 5 "solid" "green")))))
                           empty))
 
-;; need this fun to search through list events, add list of events that need to be done, then runcmd list of active events
-;; (runcmdlist (getCollisionEvents (find Collisions)) world)
-
-;; findCollisions: (list Shapes) -> (hasCollision shape list)
-;;                                   (if shape = (first list) -> skip over)
-;;                                    build list of collisions
 
 
 ;; findCollisions: list[shape] -> list[collision] 
-;; gives back list of all collisions
-;; note: objects always will collide with themselves and give an extra collision
+;; gives back list of all collisions. note: collisions are order sensitive, collision between 1 and 2 does not equal the collision of 2 and 1
+
 (define (findCollisions listShapes)
   (let ([all-collisions (map (lambda (a-shape) (findCollisionsShape a-shape listShapes))
-                             listShapes)])
-    
-    
+                             listShapes)])      
     (flattenListOfList all-collisions)))
+
+
+
 (check-expect (findCollisions (list (make-shape '1 (make-posn 0 0 ) (circle 3 "solid" "blue"))
                                     (make-shape '2 (make-posn 0 0 ) (circle 3 "solid" "blue"))))
               (list
@@ -287,7 +268,7 @@
 (define (findCollisionsShape shape listShapes)
   (map (lambda (a-shape) (make-collision (shape-name shape) (shape-name a-shape)))
        (filter (lambda (a-shape) (and (not (equal? shape a-shape))
-                                      (doCollide shape a-shape)))
+                                      (doCollide? shape a-shape)))
                listShapes)))
 (check-expect (findCollisionsShape (make-shape '1 (make-posn 0 0 ) (circle 3 "solid" "blue"))
                                    (list (make-shape '2 (make-posn 0 0 ) (circle 3 "solid" "blue"))
@@ -299,7 +280,10 @@
                                          (make-shape '3 (make-posn 0 0 ) (circle 3 "solid" "blue"))))
               (list (make-collision '1 '3)))
 
-(define (doCollide shape1 shape2)  
+
+;; doCollide?: shape shape -> boolean 
+;; determines of two shapes overlap
+(define (doCollide? shape1 shape2)  
   (let ([shape1Left (getLeft shape1)]
         [shape1Right (getRight shape1)]
         [shape1Top (getTop shape1)]
@@ -309,16 +293,16 @@
         [shape2Top (getTop shape2)]
         [shape2Bottom (getBottom shape2)]
         )
-    ;; x overlap:
+    
     (and (< shape1Left shape2Right)
          (> shape1Right shape2Left)
          (< shape1Top shape2Bottom)
          (> shape1Bottom shape2Top))))
 
-(check-expect (doCollide (make-shape '1 (make-posn 0 0 ) (circle 3 "solid" "blue"))
+(check-expect (doCollide? (make-shape '1 (make-posn 0 0 ) (circle 3 "solid" "blue"))
                          (make-shape '1 (make-posn 0 0 ) (circle 3 "solid" "blue")))
               true)
-(check-expect (doCollide (make-shape '1 (make-posn 10 0 ) (circle 3 "solid" "blue"))
+(check-expect (doCollide? (make-shape '1 (make-posn 10 0 ) (circle 3 "solid" "blue"))
                          (make-shape '1 (make-posn 0 0 ) (circle 3 "solid" "blue")))
               false)
 (define (getRight shape)        
@@ -342,6 +326,7 @@
  
 
 ;; FlattenListOfList: list[list[?]] -> list[?]
+;; turns a 2D list into a 1D list
 (define (flattenListOfList list)
   (cond [(empty? list) empty]
         [(cons? list ) (append (first list) (flattenListOfList (rest list)))]))
@@ -349,11 +334,14 @@
               (list 1 2 3 4 5 6))
 ;;~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Do Actions
 
+;; doActions: world -> world
+;; gives back a world after all movements have been resolved
 (define (doActions world)
   (doActionsList (world-listActions world) world)
   )
-;;doActionsList (world-listActions world) world))
 
+;;doActionsList (world-listActions world) world))
+;; resolves all movements of a world
 
 (define (doActionsList list world)
   (cond [(empty? list) world]
@@ -368,7 +356,8 @@
               (make-world (list (make-shape 'circ (make-posn 5 5) (circle 1 "solid" "green"))) 
                           empty empty))
 
-;; action world -> world after action 
+;; action world -> world
+;; gives back the world after a single action 
 (define (doAction action world)
   (cond [(move? action) (doMove action world)]
         [(jump? action) (doJump (jump-shapeName action) world)]
@@ -380,7 +369,7 @@
               (make-world (list (make-shape 'circ (make-posn 5 5) (circle 1 "solid" "green"))) 
                           empty empty))
 ;; doJump: symbol world -> world
-
+;; executes the jump action
 (define (doJump name world)
   (let ([thisShape (findShape name (world-listShapes world))])
     (cond [(shape? thisShape)
@@ -395,11 +384,13 @@
 
 
 ;; randomPosiion : void -> position
+;; creates a random position within the bounds
 (define (randomPosition)
   (make-posn (random WIDTH (current-pseudo-random-generator))
              (random HEIGHT (current-pseudo-random-generator))))
 
 ;; doMove world -> world
+;; executes a move command
 (define (doMove move world)
   (let ([thisShape  (findShape (move-shapeName move) (world-listShapes world))])
     (cond [(shape? thisShape)
@@ -416,18 +407,20 @@
                                   empty))
               (make-world (list (make-shape 'circ (make-posn 5 5) (circle 1 "solid" "green"))) 
                           empty empty))
+ 
 
-
-;; name list[shape] -> shape 
+;; name list[shape] -> shape
+;; gives back the shape with a given name
 (define (findShape name list)
   (let ([shape (filter (lambda (aShape) (symbol=? name (shape-name aShape))) list)]) 
     (cond [(cons? shape)(first shape)]
-          [else void]))) 
+          [else false]))) 
 
 (check-expect (findShape 'circ (list (make-shape 'circ (make-posn 0 0 ) (circle 1 "solid" "blue"))))
               (make-shape 'circ (make-posn 0 0 ) (circle 1 "solid" "blue")))
 
-;; list -> list
+;; list[shape] -> list[shape]
+;; gives back the list of shapes with the given shape removed
 (define (removeShapeFromList name list)
   (cond [(empty? list) empty]
         [(cons? list )
@@ -443,6 +436,7 @@
                                     (make-shape 'testing void void)))
               (list (make-shape 'test (make-posn 0 0) (circle 1 "solid" "blue" )))) 
 ;; shape -> shape
+;; takes a shape and creates a shape that is moved by the given velocity
 (define (moveShape shape vel)
   (make-shape (shape-name shape)
               (make-posn (+ (posn-x (shape-posn shape)) (vel-x vel)) 
@@ -471,24 +465,35 @@
 ;; an action is either
 ;;    - (make-move symbol(name) vel)
 ;;    - (make-jump symbol(name) )
-;;    - (make-jumpOnce symbol(name) )
+
 (define (action? cmd)
   (or (move? cmd)
       (jump? cmd)
       ))
 
 
-;;~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~MAKING WORLD
+;;~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~WORLD
 ;; an event is either :
 ;;    - (make-make-CollisionEvent collision cmd)
 
 ;; (make-struct list[shapes] list[events] list[actions]
+;; A world is a structure representation of all all the shapes events and actions going on in the animation
 (define-struct world (listShapes listEvents listActions) (make-inspector))
 
 
 
 
-;; gives back the  
+(create animation
+        (add circle named circ  at 20 20 radius 5 color green)
+        (addMove circ by 15 10 )
+        (when circ hits rEdge then (add circle named two at 20 10 radius 10 color pink))
+        (when two hits rEdge then (addMove two by -20 10))
+        (when circ hits rEdge then (delete circ))
+        (when two hits lEdge then (stopMoving two))
+        (addMove two by 5 0))
+
+;; list[commands] world -> world
+;; gives back the world after the list of commands has been run 
 (define (runList a-list old-world)
   (cond [(empty? a-list) old-world]
         [(cons? a-list)
@@ -499,6 +504,8 @@
                  [(action? L1)(runList (rest a-list) (addActionToList L1 old-world))]
                  [else (runList (rest a-list) (executeCommand L1 old-world))]))])) ;;TODO
 
+;; executeCommand: command world -> world
+;; gives back the state of the world after a command has been executed
 (define (executeCommand command world)
   (cond [(removeShape? command) (make-world
                                  (removeShapeFromList (removeShape-shapeName command) (world-listShapes world))
@@ -526,7 +533,7 @@
               (make-world empty empty empty))
 
 
-;; (shape world -> world)
+;; addShapeToList: (shape world) -> world
 ;; adds a shape to a world
 (define (addShapeToList shape old-world)
   (make-world (cons shape (world-listShapes old-world)) (world-listEvents old-world) (world-listActions old-world)))
@@ -539,14 +546,17 @@
                (cons event (world-listEvents old-world))
                (world-listActions old-world)))
 
-;; (action world -> world) 
-;; adds action to world
+;; addActionToList action world -> world 
+;; adds action to world. User helper function and stops any other movement command for the same shape
 (define (addActionToList action old-world)
   (addActionToListHelper action (executeCommand (make-stop ((cond
                                                               [(jump? action) jump-shapeName]
                                                               [(move? action) move-shapeName])
-                                                            action)
-                                                           )old-world))) 
+                                                            action))
+                                                           old-world)))
+
+;; addActionToListHelper: action world -> world
+;; helps the addActionToList function
 (define (addActionToListHelper action old-world)
   (make-world  (world-listShapes old-world)
                (world-listEvents old-world)
@@ -556,15 +566,6 @@
 
 
 
-
-;;~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ testing
-(create test
-        (add circle named circ at 20 20 radius 10 color red)
-        (addMove circ by 10 0 )
-        (when circ hits rEdge then (add circle named circ at 20 20 radius 5 color orange))
-        (when circ hits rEdge then (delete circ))
-        
-       )
 
 
 
