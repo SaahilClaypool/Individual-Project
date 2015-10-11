@@ -1,17 +1,22 @@
 
 ;;Saahil Claypool Individual Project
 
-#|     NOTE: This is more of a simulation than an animation. Professor Rich said this was fine. 
-1. To run an animation, type (runAnimation animation) into the interactions window. The pre-defined animations are
+#|     NOTE: This is more of a simulation than an animation. Professor Rich said this was fine.
+
+1. To run an animation, type (runAnimation animationA) into the interactions window. The pre-defined animations are
      - animationA
      - animationB
      - animationC
 
-2. This is more of a simulation than an animation. This means the collisions and actions are event driven rather than executed in a pre set list.
+2. This is more of a simulation than an animation. This means the collisions and actions are event driven rather than executed in a pre set list. To create an animation, a user describes what he or she wants to happen objects hit things. Movements then proceed until any of those collisions happen. 
    This language includes macros, collisions, events for each collision and the basic commands such as move jump and delete.
-3. In my desing phase, I planned on making different shapes different structures. For example, I would have a circleObject structure and a rectangleObject structure. I changed the shape definition to instead just take in an image of either a circle or a rectangle. I also had a repeat command that was planned to repeat a certain command or block of commands, but when I implemented the design the actions were implicitly repeated and the explicit repeat command became redundant. I also added a structure named collision to represent collisions and made slight changes to names for clarity.
+The language fails when objects remain in contact with eachother after a collision. For example, if a circle hits a rectangle then moves sideways along the rectangle, it will register as a collision each time it moves, and repeat the collision event.
+
+3. In my desing phase, I planned on making different shapes different structures. For example, I would have a circleObject structure and a rectangleObject structure. I changed the shape definition to instead just take in an image of either a circle or a rectangle. Having two structures for shapes made it harder to write the interpreter because each function needed to be branched for both circles and rectangles.
+I also had a repeat command that was planned to repeat a certain command or block of commands, but when I implemented the design the actions were implicitly repeated and the explicit repeat command became redundant. I also added a structure named collision to represent collisions and made slight changes to names for clarity.
+
 4. The shapes should hold their own velocity. This would make things like a bounce function that reverses a shape's x velocity or y velocity much less complicated. It is still possible with my implementation, but the code would not be nearly as clean. This also makes the "move" functions more complicated as they now need to find and stop the previous move commands for that shape rather than changing the velocity of an object.
- Additionally, it would better if my collision events took in lists of collisions. This would make creating animations less repatative.
+ Additionally, it would better if my collision events took in lists of collisions. This would make creating animations less repatative. (right now a new collision event must be created for each action that a user desires to create after a collision)
 addShape may not be a needed command but it may help add clarity. 
 |#
 
@@ -24,14 +29,15 @@ addShape may not be a needed command but it may help add clarity.
 (rectangle 40 80 "solid" "green")
 
 
+;;~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Structure Definitions
 
-;; addShape ('name shape)
-;; a shape is a (make-shape symbol posn image)
-(define-struct shape(name posn image) (make-inspector) )
 
 ;; an animation is a (make-animation list[cmd]
 ;; takes in a list of commands, creates an animation from this list
 (define-struct animation (listCmd) (make-inspector))
+
+;; a shape is a (make-shape symbol posn image)
+(define-struct shape(name posn image) (make-inspector) )
 
 ;; velocity is a (make-vel int int)
 ;; creats an x y velocity
@@ -41,11 +47,20 @@ addShape may not be a needed command but it may help add clarity.
 
 ;;collision is a (make-collision symbol sybol)
 ;; represents the collision of two objects
+;; collision is (make-collision symbol sybol)
+;; a symbol is either a shape name or 'lEdge 'rEdge 'tEdge 'bEdge where each symbol corresponds with the appropriate Edge of the animation
+
 (define-struct collision (shapeName1 shapeName2) (make-inspector))
 
 
 
-;;~~~~~~~~~~~~~~~~~~~~~~~~ Macros 
+;;~~~~~~~~~~~~~~~~~~~~~~~~ Macros
+
+;; add: adds circle shape to animation
+;; Circle: add circle named name at xLoc yLoc radius rad color c
+
+
+
 (define-syntax add
   (syntax-rules (circle rectangle width height named at radius color)
     [(add circle named name at intX intY radius intR color theColor)
@@ -54,42 +69,50 @@ addShape may not be a needed command but it may help add clarity.
      (make-addShape (make-shape 'name (make-posn intX intY) (rectangle intW intH "solid" 'theColor)))]))
 
 
-;; macro to make move command easier
+;; addMove: adds move command to a shape
+;; (addMove shapeName by int int) -> make-move
 (define-syntax addMove
   (syntax-rules (by)
     [(addMove name by intX intY)
      (make-move 'name (make-vel intX intY))]))
 
-;; make an animation
+;; create: creates an animation
+;; (create command ...) -> make (animation list cmd)
 (define-syntax create
   (syntax-rules ()
     [(create name fun1 ...)
      (define name (make-animation (list fun1 ...)))]))
 
-;; macro to make collision sytax less complicated. 
+;; when: creates collision events 
+;; (when shapeName hits shapeName then command) -> (make-collisionsEvent (make-collision symbol symbol)
+;;                                                                       command)
 (define-syntax when
   (syntax-rules(hits then) 
-    [(when name hits name2 then command  )
+    [(when name hits name2 then command)
      (make-collisionEvent (make-collision 'name 'name2)
                             command )])) 
-;; macro to make remove shape less complicated
+;; delete: removes a shape
+;;(delete shapeName) -> (make-removeShape symbol) 
 (define-syntax delete
   (syntax-rules ()
     [(delete shape)
      (make-removeShape 'shape)]))
 
-;;macro to amke stop command slightly less complicated
+;; stopMoving: stops all movement commands for a shape
+;; (stopMoving shapeName) -> (make-stop symbol)
 (define-syntax stopMoving
   (syntax-rules ()
     [(stopMoving shape)
      (make-stop 'shape)]))
-;;macro to make shape jump once
+;; jumpOnce: causes shape to jump once
+;; (singleJump shapeName) -> (make-jumpOnce symbol)
 (define-syntax singleJump
   (syntax-rules ()
     [(singleJump shape)
      (make-jumpOnce 'shape)]))
 
-;; macro to make a shape jump constantly
+;; jumpRepeatedly: causes shape to jump every world move
+;;(jumpRepeatedly shapeName) -> (make-jump symbol)
 (define-syntax jumpRepeatedly
   (syntax-rules ()
     [(jumpRepeatedly shape)
@@ -119,8 +142,7 @@ addShape may not be a needed command but it may help add clarity.
 ;; collisionEvent is (make-collisionEvent collision cmd
 (define-struct collisionEvent (collision cmd) (make-inspector))
 
-;; collision is (make-collision symbol sybol)
-;; a symbol is either a shape name or 'lEdge 'rEdge 'tEdge 'bEdge where each symbol corresponds with the appropriate Edge of the animation
+
 
 
 ;; ~~~~~~~~~~~~~~~~~~~~~~~EXAMPLES
@@ -131,11 +153,11 @@ addShape may not be a needed command but it may help add clarity.
 ;; Creats an animation. In this , a circle moves from left to right until it hits a rectangle, it then deletes that rectangle and bounces back
 ;; until it hits a wall.
 (create animationA
-        (add circle named circ at 10 5 radius 5 color blue)
-        (add rectangle named rect at 100 5 width 5 height 100 color green)
-        (addMove circ by 5 1)
+        (add circle named circ at 30 30 radius 25 color blue)
+        (add rectangle named rect at 300 5 width 25 height 300 color green)
+        (addMove circ by 15 3)
         (when circ hits rect then (delete rect))
-        (when circ hits rect then (addMove circ by -5 1))
+        (when circ hits rect then (addMove circ by -15 3))
         (when circ hits lEdge then (stopMoving circ)))
 
 ;;Creates an animation where a ball jumps randomly accross the screen until comming into contact with an edge 
@@ -173,7 +195,9 @@ addShape may not be a needed command but it may help add clarity.
 
 (define HEIGHT 500)
 (define WIDTH 500)
-;;animation -> void
+
+
+;; runAnimation:  animation -> void
 ;; creates a world object and starts the running of this world. The world has constants for each edge
 (define (runAnimation animation)
   (let ([world (runList (animation-listCmd animation) (make-world (list (make-shape
@@ -189,7 +213,7 @@ addShape may not be a needed command but it may help add clarity.
       (big-bang WIDTH HEIGHT 1/28 true)
       (runWorld world))))
 
-;; world -> void
+;; runWorld: world -> void
 ;; runs the world
 (define (runWorld world)
   (cond ((empty? (world-listActions world)) (drawWorld world))
@@ -203,7 +227,7 @@ addShape may not be a needed command but it may help add clarity.
 
 ;;~~~~~~~~~~~~~~~~~~~~~~~~ Collisions:
 
-;; doCollisions (world) -> world
+;; doCollisions: world -> world
 ;; creates a world after each collision has been resolved
 (define (doCollisions world)
   (let ([collList (findCollisions (world-listShapes world))])
@@ -211,7 +235,7 @@ addShape may not be a needed command but it may help add clarity.
 
 
 
-;;doCollList list[collision] world -> world
+;;doCollList: list[collision] world -> world
 ;; executes list of collisions
 (define (doCollisionsList collList world)
   (cond [(empty? collList) world]
@@ -340,7 +364,7 @@ addShape may not be a needed command but it may help add clarity.
   (doActionsList (world-listActions world) world)
   )
 
-;;doActionsList (world-listActions world) world))
+;;doActionsList: list[action] world -> world
 ;; resolves all movements of a world
 
 (define (doActionsList list world)
@@ -356,7 +380,7 @@ addShape may not be a needed command but it may help add clarity.
               (make-world (list (make-shape 'circ (make-posn 5 5) (circle 1 "solid" "green"))) 
                           empty empty))
 
-;; action world -> world
+;; doAction: action world -> world
 ;; gives back the world after a single action 
 (define (doAction action world)
   (cond [(move? action) (doMove action world)]
@@ -369,7 +393,7 @@ addShape may not be a needed command but it may help add clarity.
               (make-world (list (make-shape 'circ (make-posn 5 5) (circle 1 "solid" "green"))) 
                           empty empty))
 ;; doJump: symbol world -> world
-;; executes the jump action
+;; executes the jump action. Places shape at random x y location
 (define (doJump name world)
   (let ([thisShape (findShape name (world-listShapes world))])
     (cond [(shape? thisShape)
@@ -389,8 +413,8 @@ addShape may not be a needed command but it may help add clarity.
   (make-posn (random WIDTH (current-pseudo-random-generator))
              (random HEIGHT (current-pseudo-random-generator))))
 
-;; doMove world -> world
-;; executes a move command
+;; doMove move world -> world
+;; executes a move command. Moves shape by a velocity
 (define (doMove move world)
   (let ([thisShape  (findShape (move-shapeName move) (world-listShapes world))])
     (cond [(shape? thisShape)
@@ -409,7 +433,7 @@ addShape may not be a needed command but it may help add clarity.
                           empty empty))
  
 
-;; name list[shape] -> shape
+;; findShape: name list[shape] -> shape
 ;; gives back the shape with a given name
 (define (findShape name list)
   (let ([shape (filter (lambda (aShape) (symbol=? name (shape-name aShape))) list)]) 
@@ -419,7 +443,7 @@ addShape may not be a needed command but it may help add clarity.
 (check-expect (findShape 'circ (list (make-shape 'circ (make-posn 0 0 ) (circle 1 "solid" "blue"))))
               (make-shape 'circ (make-posn 0 0 ) (circle 1 "solid" "blue")))
 
-;; list[shape] -> list[shape]
+;; removeShape: list[shape] -> list[shape]
 ;; gives back the list of shapes with the given shape removed
 (define (removeShapeFromList name list)
   (cond [(empty? list) empty]
@@ -435,7 +459,7 @@ addShape may not be a needed command but it may help add clarity.
                                     (make-shape 'test (make-posn 0 0) (circle 1 "solid" "blue" )) 
                                     (make-shape 'testing void void)))
               (list (make-shape 'test (make-posn 0 0) (circle 1 "solid" "blue" )))) 
-;; shape -> shape
+;; moveShape: shape vel -> shape
 ;; takes a shape and creates a shape that is moved by the given velocity
 (define (moveShape shape vel)
   (make-shape (shape-name shape)
@@ -447,13 +471,11 @@ addShape may not be a needed command but it may help add clarity.
               (make-shape 'circ (make-posn 5 5  ) (circle 1 "solid" "blue")))
 ;;~~~~~~~~~~~~~~~~~~~~~~~~~DRAWING
 
-;; (world-> void)
+;; drawWorld: (world-> void)
 ;; gives the image of the world 
 (define (drawWorld world)
-  
-  
   (update-frame (drawList (world-listShapes world))))
-;; list -> image
+;; drawList: list[shape] -> image
 (define (drawList list)
   (cond[(empty? list) (empty-scene WIDTH HEIGHT)]
        [(cons? list)
@@ -465,7 +487,8 @@ addShape may not be a needed command but it may help add clarity.
 ;; an action is either
 ;;    - (make-move symbol(name) vel)
 ;;    - (make-jump symbol(name) )
-
+;; action? :  struct -> boolean
+;; gives back true if cmd is an action (move or jump)
 (define (action? cmd)
   (or (move? cmd)
       (jump? cmd)
@@ -473,26 +496,17 @@ addShape may not be a needed command but it may help add clarity.
 
 
 ;;~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~WORLD
-;; an event is either :
-;;    - (make-make-CollisionEvent collision cmd)
 
-;; (make-struct list[shapes] list[events] list[actions]
+
+;; world is (make-struct list[shapes] list[events] list[actions]
 ;; A world is a structure representation of all all the shapes events and actions going on in the animation
 (define-struct world (listShapes listEvents listActions) (make-inspector))
 
 
 
 
-(create animation
-        (add circle named circ  at 20 20 radius 5 color green)
-        (addMove circ by 15 10 )
-        (when circ hits rEdge then (add circle named two at 20 10 radius 10 color pink))
-        (when two hits rEdge then (addMove two by -20 10))
-        (when circ hits rEdge then (delete circ))
-        (when two hits lEdge then (stopMoving two))
-        (addMove two by 5 0))
 
-;; list[commands] world -> world
+;; runList: list[commands] world -> world
 ;; gives back the world after the list of commands has been run 
 (define (runList a-list old-world)
   (cond [(empty? a-list) old-world]
@@ -533,20 +547,20 @@ addShape may not be a needed command but it may help add clarity.
               (make-world empty empty empty))
 
 
-;; addShapeToList: (shape world) -> world
+;; addShapeToList: shape world -> world
 ;; adds a shape to a world
 (define (addShapeToList shape old-world)
   (make-world (cons shape (world-listShapes old-world)) (world-listEvents old-world) (world-listActions old-world)))
 
-;; (collisionEvent world -> world
-;; adds collision event to worl
+;; addEventToList: collisionEvent world -> world
+;; adds collision event to world
 (define (addEventToList event old-world)
  
    (make-world  (world-listShapes old-world)
                (cons event (world-listEvents old-world))
                (world-listActions old-world)))
 
-;; addActionToList action world -> world 
+;; addActionToList: action world -> world 
 ;; adds action to world. User helper function and stops any other movement command for the same shape
 (define (addActionToList action old-world)
   (addActionToListHelper action (executeCommand (make-stop ((cond
